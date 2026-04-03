@@ -87,6 +87,6 @@ impl Cli {
 }
 
 fn usage() -> String {
-    "Usage:\n  callisto parse <input.luna>\n  callisto check <input.luna>\n  callisto emit-lua <input.luna> [-o out.lua|out_dir]\n  callisto build <input.luna> [-o out.lua|out_dir]"
+    "Usage:\n  callisto parse <input.cal>\n  callisto check <input.cal>\n  callisto emit-lua <input.cal> [-o out.lua|out_dir]\n  callisto build <input.cal> [-o out.lua|out_dir]"
         .to_string()
 }

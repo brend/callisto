@@ -18,9 +18,13 @@ Maintain a clean compiler pipeline and avoid phase leakage.
 5. Validate:
    - `cargo fmt`
    - `cargo test`
-   - `cargo run -- check <sample.luna>`
+   - `cargo run -- check <sample.cal>`
+   - `cargo run -- emit-lua <sample.cal> -o /tmp/callisto_smoke.lua`
+   - if extern/import behavior changed: `cargo run -- emit-lua samples/imports_extern_interop.cal -o /tmp/callisto_imports_extern.lua`
 
 ## Output Expectations
 - Compiler still runs end-to-end.
 - No direct AST-to-Lua shortcuts.
 - New behavior is diagnosed correctly on invalid input.
+- Guidance matches current CLI usage (`parse|check|emit-lua|build`) and `.cal` as the canonical extension.
+- Treat `.luna` files in the repo as legacy/deprecated sample naming until they are renamed.

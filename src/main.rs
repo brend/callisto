@@ -284,6 +284,23 @@ end
     }
 
     #[test]
+    fn compile_pipeline_omits_compiled_output_when_diagnostics_have_errors() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("callisto_compile_errors_{}.luna", nonce));
+        std::fs::write(&path, "fn main() -> Int do\ntrue\nend\n")
+            .expect("failed to write temp file");
+
+        let (_, _, diagnostics, compiled) = compile_pipeline(&path).expect("pipeline failed");
+        assert!(diagnostics.has_errors(), "{:?}", diagnostics.items);
+        assert!(compiled.is_none());
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
     fn resolve_output_path_uses_lua_file_dir_and_defaults() {
         let (tokens, lex_diags) = lexer::lex(0, "module alpha.beta\n");
         assert!(!lex_diags.has_errors());
@@ -531,5 +548,151 @@ end
         let lua = codegen_lua::emit_lua_module(&tir, &resolved);
         assert!(lua.contains("__scrutinee.radius"), "{lua}");
         assert!(!lua.contains("__scrutinee._1"), "{lua}");
+    }
+
+    #[test]
+    fn resolve_reports_duplicate_import_aliases_and_items() {
+        let source = r#"
+import foo.bar
+import baz.bar
+import foo.one.{zap}
+import foo.two.{zap}
+
+fn main() -> Int do
+0
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (_, resolve_diags) = resolve::resolve(&ast);
+        assert!(resolve_diags.has_errors());
+        assert!(
+            resolve_diags
+                .items
+                .iter()
+                .any(|d| d.message.contains("duplicate import alias 'bar'"))
+        );
+        assert!(
+            resolve_diags
+                .items
+                .iter()
+                .any(|d| d.message.contains("duplicate imported item 'zap'"))
+        );
+    }
+
+    #[test]
+    fn resolve_rejects_nullable_and_nil_types_outside_extern_context() {
+        let source = r#"
+fn main(x: Int not, y: Nil) -> Int do
+1
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (_, resolve_diags) = resolve::resolve(&ast);
+        assert!(resolve_diags.has_errors());
+        assert!(resolve_diags.items.iter().any(|d| {
+            d.message
+                .contains("nullable types are only allowed in extern contexts")
+        }));
+        assert!(
+            resolve_diags
+                .items
+                .iter()
+                .any(|d| d.message.contains("nil type is only allowed in extern contexts"))
+        );
+    }
+
+    #[test]
+    fn constructor_payload_shape_mismatch_is_reported() {
+        let source = r#"
+type MaybeInt = | None | Some(Int)
+
+fn main() -> Int do
+let x = None(1)
+0
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(
+            type_diags
+                .items
+                .iter()
+                .any(|d| d.message.contains("constructor does not accept a payload"))
+        );
+    }
+
+    #[test]
+    fn record_update_reports_unknown_and_mistyped_fields() {
+        let source = r#"
+type Point { x: Int, y: Int }
+
+fn main() -> Int do
+let p = Point { x = 1, y = 2 } with { x = true, z = 3 }
+p.x
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(
+            type_diags
+                .items
+                .iter()
+                .any(|d| d.message.contains("field 'x' expects Int but got Bool"))
+        );
+        assert!(
+            type_diags
+                .items
+                .iter()
+                .any(|d| d.message.contains("unknown field 'z' in record update"))
+        );
+    }
+
+    #[test]
+    fn record_update_codegen_copies_base_before_overrides() {
+        let source = r#"
+type Point { x: Int, y: Int }
+
+fn bump(p: Point) -> Point do
+p with { x = p.x + 1 }
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (tir, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+
+        let lua = codegen_lua::emit_lua_module(&tir, &resolved);
+        assert!(
+            lua.contains("for k, v in pairs(__base) do __tmp[k] = v end"),
+            "{lua}"
+        );
+        assert!(lua.contains("__tmp.x = (p.x + 1)"), "{lua}");
     }
 }
