@@ -1,0 +1,44 @@
+module shapes
+
+// A point in 2D space.
+type Point { x: Float, y: Float }
+
+// A 2D shape — either a circle or an axis-aligned rectangle.
+type Shape = | Circle { center: Point, radius: Float }
+             | Rect { x: Float, y: Float, w: Float, h: Float }
+
+// Return the area of a shape.
+pub fn area(s: Shape) -> Float do
+  match s do
+    case Circle { center = _, radius } => radius * radius * 3.14159
+    case Rect { x = _, y = _, w, h }   => w * h
+  end
+end
+
+// Return the perimeter of a shape.
+pub fn perimeter(s: Shape) -> Float do
+  match s do
+    case Circle { center = _, radius } => 2.0 * 3.14159 * radius
+    case Rect { x = _, y = _, w, h }   => 2.0 * (w + h)
+  end
+end
+
+impl Point do
+  // Squared distance between two points (avoids a square-root).
+  pub fn dist_sq(self: Point, other: Point) -> Float do
+    let dx = self.x - other.x
+    let dy = self.y - other.y
+    dx * dx + dy * dy
+  end
+
+  // Translate a point by (dx, dy), returning a new point.
+  pub fn translate(self: Point, dx: Float, dy: Float) -> Point do
+    self with { x = self.x + dx, y = self.y + dy }
+  end
+end
+
+pub fn main() -> Float do
+  let c = Circle { center = Point { x = 0.0, y = 0.0 }, radius = 5.0 }
+  let r = Rect { x = 1.0, y = 1.0, w = 4.0, h = 3.0 }
+  area(c) + area(r)
+end

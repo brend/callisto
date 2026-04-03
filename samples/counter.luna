@@ -1,0 +1,38 @@
+module counter
+
+// Sum all integers from 0 up to (but not including) n using a for loop.
+pub fn sum_to(n: Int) -> Int do
+  var total = 0
+  for i in 0..n do
+    total = total + i
+  end
+  total
+end
+
+// Count how many values in 1..n are divisible by divisor.
+pub fn count_divisible(n: Int, divisor: Int) -> Int do
+  var count = 0
+  for i in 1..n do
+    if i % divisor == 0 then
+      count = count + 1
+    else
+      count
+    end
+  end
+  count
+end
+
+// Compute base raised to the power exp using a while loop.
+pub fn power(base: Int, exp: Int) -> Int do
+  var result = 1
+  var remaining = exp
+  while remaining > 0 do
+    result = result * base
+    remaining = remaining - 1
+  end
+  result
+end
+
+pub fn main() -> Int do
+  sum_to(10) + count_divisible(20, 3) + power(2, 8)
+end
