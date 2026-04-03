@@ -1,0 +1,13 @@
+module imports_extern_interop
+
+import foo.bar
+import foo.bar.{qux}
+
+extern module foo.bar do
+  extern fn baz() -> Int
+  extern fn qux(x: Int) -> Int
+end
+
+pub fn main() -> Int do
+  bar.baz() + qux(41)
+end

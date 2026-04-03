@@ -1,6 +1,6 @@
 # Callisto Agent Guide
 
-This repository contains `callisto`, a Luna-to-Lua transpiler implemented in Rust.
+This repository contains `callisto`, a Callisto-to-Lua transpiler implemented in Rust.
 
 ## Mission
 - Keep implementation aligned with `docs/luna_compiler_architecture_v0_1.md`.
@@ -23,10 +23,10 @@ This repository contains `callisto`, a Luna-to-Lua transpiler implemented in Rus
 ## Developer Commands
 - Format: `cargo fmt`
 - Tests: `cargo test`
-- Parse only: `cargo run -- parse <file.luna>`
-- Full semantic check: `cargo run -- check <file.luna>`
-- Emit Lua: `cargo run -- emit-lua <file.luna> [-o out.lua|out_dir]`
-- Build alias: `cargo run -- build <file.luna> [-o out.lua|out_dir]`
+- Parse only: `cargo run -- parse <file.cal>`
+- Full semantic check: `cargo run -- check <file.cal>`
+- Emit Lua: `cargo run -- emit-lua <file.cal> [-o out.lua|out_dir]`
+- Build alias: `cargo run -- build <file.cal> [-o out.lua|out_dir]`
 
 ## Change Rules
 - Keep spans and diagnostics intact for new syntax/semantics.
@@ -38,5 +38,5 @@ This repository contains `callisto`, a Luna-to-Lua transpiler implemented in Rus
 For feature work, expect all of the following:
 1. `cargo fmt` clean.
 2. `cargo test` passing.
-3. At least one manual `check` and `emit-lua` run on a representative `.luna` sample.
+3. At least one manual `check` and `emit-lua` run on a representative `.cal` sample.
 4. Diagnostics are actionable and include correct spans.

@@ -29,10 +29,10 @@ cargo build --release
 ## Usage
 
 ```
-callisto parse    <file.luna>                  # Parse and dump the AST
-callisto check    <file.luna>                  # Type-check without emitting
-callisto emit-lua <file.luna> [-o out.lua|dir] # Transpile to Lua
-callisto build    <file.luna> [-o out.lua|dir] # Alias for emit-lua
+callisto parse    <file.cal>                  # Parse and dump the AST
+callisto check    <file.cal>                  # Type-check without emitting
+callisto emit-lua <file.cal> [-o out.lua|dir] # Transpile to Lua
+callisto build    <file.cal> [-o out.lua|dir] # Alias for emit-lua
 ```
 
 Output defaults to `out/<module>.lua` when `-o` is not specified.
