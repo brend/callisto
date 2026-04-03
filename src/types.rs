@@ -106,9 +106,7 @@ impl Type {
                 lhs_p == rhs_p && lhs_r == rhs_r
             }
             (Type::TypeParam(a), Type::TypeParam(b)) => a == b,
-            (Type::ForeignNullable(inner), Type::ForeignNil) => {
-                matches!(&**inner, Type::ForeignNil) || true
-            }
+            (Type::ForeignNullable(_), Type::ForeignNil) => true,
             (Type::ForeignNullable(lhs), Type::ForeignNullable(rhs)) => lhs.is_assignable_from(rhs),
             _ => false,
         }
