@@ -37,6 +37,12 @@ callisto build    <file.cal> [-o out.lua|dir] # Alias for emit-lua
 
 Output defaults to `out/<module>.lua` when `-o` is not specified.
 
+## v0.1 Scope
+
+- Compilation starts from one entry file and recursively loads imported module files from the entry directory root (`foo.bar` -> `foo/bar.luna|.cal` or `foo/bar/mod.luna|.cal`).
+- `import` can be satisfied either by loaded module files or by explicit `extern module` declarations in the current file.
+- Imported symbols must still have matching declarations (public functions from imported modules, or explicit extern declarations), otherwise type checking reports a clear error.
+
 ## Examples
 
 ### Records and functions

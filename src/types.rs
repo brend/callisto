@@ -100,10 +100,20 @@ impl Type {
             | (Type::Unit, Type::Unit)
             | (Type::ForeignNil, Type::ForeignNil) => true,
             (Type::Named(lhs_id, lhs_args), Type::Named(rhs_id, rhs_args)) => {
-                lhs_id == rhs_id && lhs_args == rhs_args
+                lhs_id == rhs_id
+                    && lhs_args.len() == rhs_args.len()
+                    && lhs_args
+                        .iter()
+                        .zip(rhs_args)
+                        .all(|(lhs, rhs)| lhs.is_assignable_from(rhs))
             }
             (Type::Func(lhs_p, lhs_r), Type::Func(rhs_p, rhs_r)) => {
-                lhs_p == rhs_p && lhs_r == rhs_r
+                lhs_p.len() == rhs_p.len()
+                    && lhs_p
+                        .iter()
+                        .zip(rhs_p)
+                        .all(|(lhs, rhs)| lhs.is_assignable_from(rhs))
+                    && lhs_r.is_assignable_from(rhs_r)
             }
             (Type::TypeParam(a), Type::TypeParam(b)) => a == b,
             (Type::ForeignNullable(_), Type::ForeignNil) => true,

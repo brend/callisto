@@ -152,8 +152,6 @@ impl Parser {
         let body = if self.eat(TokenKind::Eq).is_some() {
             if self.at(TokenKind::Pipe) {
                 TypeDeclBody::Sum(self.parse_sum_variants())
-            } else if self.is_sum_variant_start() {
-                TypeDeclBody::Sum(self.parse_sum_variants_no_leading_pipe())
             } else {
                 TypeDeclBody::Alias(self.parse_type_expr())
             }
@@ -181,15 +179,6 @@ impl Parser {
         while self.eat(TokenKind::Pipe).is_some() {
             variants.push(self.parse_sum_variant());
             self.skip_newlines();
-        }
-        variants
-    }
-
-    fn parse_sum_variants_no_leading_pipe(&mut self) -> Vec<SumVariantDecl> {
-        let mut variants = Vec::new();
-        variants.push(self.parse_sum_variant());
-        while self.eat(TokenKind::Pipe).is_some() {
-            variants.push(self.parse_sum_variant());
         }
         variants
     }
@@ -1107,10 +1096,6 @@ impl Parser {
             TokenKind::Percent => (BinaryOp::Rem, 11, 12),
             _ => return None,
         })
-    }
-
-    fn is_sum_variant_start(&self) -> bool {
-        self.at(TokenKind::Ident)
     }
 
     fn at_any(&self, kinds: &[TokenKind]) -> bool {
