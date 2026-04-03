@@ -940,6 +940,14 @@ impl Parser {
                             },
                         );
                     }
+
+                    return self.mk_pattern(
+                        tok.span,
+                        PatternKind::Constructor {
+                            name: tok.lexeme,
+                            args: Vec::new(),
+                        },
+                    );
                 }
 
                 self.mk_pattern(tok.span, PatternKind::Bind { name: tok.lexeme })

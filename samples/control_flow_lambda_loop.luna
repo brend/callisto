@@ -1,0 +1,28 @@
+module control_flow_lambda_loop
+
+fn bump_until(limit: Int) -> Int do
+  var i: Int = 0
+  var acc: Int = 0
+  let bump = fn (x: Int) -> Int => x + 1
+
+  while i < limit do
+    i = bump(i)
+    acc = acc + i
+  end
+
+  for n in 0..limit do
+    acc = acc + n
+  end
+
+  if acc > 20 then
+    acc
+  elseif acc > 10 then
+    acc + 1
+  else
+    0
+  end
+end
+
+pub fn main() -> Int do
+  bump_until(4)
+end

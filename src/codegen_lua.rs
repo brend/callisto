@@ -7,7 +7,7 @@ use crate::{
         TirBinaryOp, TirBlock, TirExpr, TirExprKind, TirFunc, TirFuncKind, TirMatchArm, TirModule,
         TirPattern, TirPatternVariantPayload, TirStmt, TirUnaryOp, TirVariantPayload,
     },
-    types::{FuncId, LocalId, VariantId},
+    types::{FuncId, FuncKind, LocalId, VariantId},
 };
 
 pub fn emit_lua_module(tir: &TirModule, resolved: &ResolvedModule) -> String {
@@ -55,10 +55,26 @@ impl<'a> LuaEmitter<'a> {
         self.line("local M = {}");
         self.line("");
 
-        for func in &self.tir.funcs {
-            if matches!(func.kind, TirFuncKind::Extern) {
-                continue;
-            }
+        let non_extern_funcs: Vec<&TirFunc> = self
+            .tir
+            .funcs
+            .iter()
+            .filter(|func| !matches!(func.kind, TirFuncKind::Extern))
+            .collect();
+
+        for func in &non_extern_funcs {
+            let lua_name = self
+                .func_lua_names
+                .get(&func.id)
+                .cloned()
+                .unwrap_or_else(|| sanitize_ident(&func.name));
+            self.line(&format!("local {}", lua_name));
+        }
+        if !non_extern_funcs.is_empty() {
+            self.line("");
+        }
+
+        for func in non_extern_funcs {
             self.emit_function(func);
             self.line("");
         }
@@ -97,7 +113,7 @@ impl<'a> LuaEmitter<'a> {
             .map(|p| sanitize_ident(&p.name))
             .collect::<Vec<_>>()
             .join(", ");
-        self.line(&format!("local function {}({})", lua_name, params));
+        self.line(&format!("{} = function({})", lua_name, params));
         self.indent += 1;
 
         let mut locals = HashMap::new();
@@ -205,9 +221,19 @@ impl<'a> LuaEmitter<'a> {
                 .cloned()
                 .unwrap_or_else(|| format!("l{}", local.0)),
             TirExprKind::Func(func_id) => self
-                .func_lua_names
-                .get(func_id)
-                .cloned()
+                .resolved
+                .func_infos
+                .get(func_id.0 as usize)
+                .map(|info| {
+                    if matches!(info.kind, FuncKind::Extern) {
+                        info.name.clone()
+                    } else {
+                        self.func_lua_names
+                            .get(func_id)
+                            .cloned()
+                            .unwrap_or_else(|| format!("f{}", func_id.0))
+                    }
+                })
                 .unwrap_or_else(|| format!("f{}", func_id.0)),
             TirExprKind::ExternPath(path) => path.join("."),
             TirExprKind::Call { callee, args } => {

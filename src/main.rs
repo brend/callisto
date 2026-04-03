@@ -230,7 +230,8 @@ end
         assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
 
         let lua = codegen_lua::emit_lua_module(&tir, &resolved);
-        assert!(lua.contains("local function main("), "{lua}");
+        assert!(lua.contains("local main"), "{lua}");
+        assert!(lua.contains("main = function("), "{lua}");
         assert!(lua.contains("M.main = main"), "{lua}");
         assert!(lua.contains("MaybeInt_unwrap_or"), "{lua}");
     }
@@ -420,6 +421,90 @@ end
         assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
         let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
         assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+    }
+
+    #[test]
+    fn extern_module_calls_emit_lua_paths() {
+        let source = r#"
+import foo.bar
+import foo.bar.{qux}
+
+extern module foo.bar do
+extern fn baz() -> Int
+extern fn qux(x: Int) -> Int
+end
+
+fn main() -> Int do
+bar.baz() + qux(1)
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors());
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (tir, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+
+        let lua = codegen_lua::emit_lua_module(&tir, &resolved);
+        assert!(lua.contains("foo.bar.baz()"), "{lua}");
+        assert!(lua.contains("foo.bar.qux(1)"), "{lua}");
+    }
+
+    #[test]
+    fn nullary_constructor_pattern_is_not_lowered_as_bind() {
+        let source = r#"
+type MaybeInt = | None | Some(Int)
+
+fn pick(m: MaybeInt) -> Int do
+match m do
+case None => 0
+case Some(v) => v
+end
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors());
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (tir, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+
+        let lua = codegen_lua::emit_lua_module(&tir, &resolved);
+        assert!(lua.contains("__scrutinee.tag == \"None\""), "{lua}");
+    }
+
+    #[test]
+    fn functions_are_predeclared_for_forward_references() {
+        let source = r#"
+fn main() -> Int do
+helper()
+end
+
+fn helper() -> Int do
+1
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (tir, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+
+        let lua = codegen_lua::emit_lua_module(&tir, &resolved);
+        assert!(lua.contains("local main"), "{lua}");
+        assert!(lua.contains("local helper"), "{lua}");
+        assert!(lua.contains("main = function()"), "{lua}");
+        assert!(lua.contains("return helper()"), "{lua}");
     }
 
     #[test]

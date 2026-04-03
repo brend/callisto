@@ -1,0 +1,15 @@
+module sum_record_patterns
+
+type Shape = | Circle { radius: Int } | Rect { w: Int, h: Int } | Dot
+
+fn area(shape: Shape) -> Int do
+  match shape do
+    case Circle { radius } => radius * radius * 3
+    case Rect { w, h }     => w * h
+    case Dot               => 0
+  end
+end
+
+pub fn main(shape: Shape) -> Int do
+  area(shape)
+end
