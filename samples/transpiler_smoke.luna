@@ -1,0 +1,7 @@
+module smoke
+
+pub fn main() -> Int do
+  let a = 40
+  let b = 2
+  a + b
+end
