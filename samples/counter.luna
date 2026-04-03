@@ -12,12 +12,10 @@ end
 // Count how many values in 1..n are divisible by divisor.
 pub fn count_divisible(n: Int, divisor: Int) -> Int do
   var count = 0
-  for i in 1..n do
-    if i % divisor == 0 then
-      count = count + 1
-    else
-      count
-    end
+  var i = 1
+  while i < n do
+    count = count + (if i % divisor == 0 then 1 else 0 end)
+    i = i + 1
   end
   count
 end
