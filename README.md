@@ -1,0 +1,204 @@
+# Callisto
+
+Callisto is a statically-typed programming language that compiles to Lua. It brings type safety, algebraic data types, and pattern matching to the Lua ecosystem while emitting clean, readable Lua code.
+
+## Features
+
+- **Static type system** — primitives (`Int`, `Float`, `Bool`, `String`), record types, sum types, and generics
+- **Pattern matching** — exhaustive `match`/`case` on sum types, literals, and constructors
+- **Algebraic data types** — record types and sum types with positional or named payloads
+- **Immutable/mutable bindings** — `let` for immutable, `var` for mutable
+- **Method syntax** — `impl` blocks for attaching methods to types
+- **Lambda expressions** — first-class functions with explicit types
+- **Record update syntax** — non-destructive field updates with `with`
+- **Extern interop** — typed bindings to existing Lua APIs via `extern`
+- **Module system** — `module` declarations and `import` statements
+- **Readable output** — emits idiomatic, human-readable Lua
+
+## Installation
+
+Requires [Rust](https://rustup.rs/) (edition 2024).
+
+```sh
+git clone <repo>
+cd callisto
+cargo build --release
+# binary: target/release/callisto
+```
+
+## Usage
+
+```
+callisto parse    <file.luna>                  # Parse and dump the AST
+callisto check    <file.luna>                  # Type-check without emitting
+callisto emit-lua <file.luna> [-o out.lua|dir] # Transpile to Lua
+callisto build    <file.luna> [-o out.lua|dir] # Alias for emit-lua
+```
+
+Output defaults to `out/<module>.lua` when `-o` is not specified.
+
+## Examples
+
+### Records and functions
+
+```
+module geometry
+
+type Vec2 { x: Float, y: Float }
+
+fn length_sq(v: Vec2) -> Float do
+  v.x * v.x + v.y * v.y
+end
+
+pub fn translate(v: Vec2, dx: Float, dy: Float) -> Vec2 do
+  v with { x = v.x + dx, y = v.y + dy }
+end
+```
+
+Transpiles to:
+
+```lua
+local M = {}
+
+local function length_sq(v)
+    return v.x * v.x + v.y * v.y
+end
+
+local function translate(v, dx, dy)
+    return (function(__base)
+        local __tmp = {}
+        for k, val in pairs(__base) do __tmp[k] = val end
+        __tmp.x = __base.x + dx
+        __tmp.y = __base.y + dy
+        return __tmp
+    end)(v)
+end
+M.translate = translate
+
+return M
+```
+
+### Sum types and pattern matching
+
+```
+module option
+
+type Option[T] = | None | Some(T)
+
+impl Option do
+  fn unwrap_or(self: Option[Int], fallback: Int) -> Int do
+    match self do
+      case Some(v) => v
+      case None    => fallback
+    end
+  end
+end
+
+pub fn safe_div(a: Int, b: Int) -> Option[Int] do
+  if b == 0 then
+    None
+  else
+    Some(a / b)
+  end
+end
+```
+
+### Extern interop
+
+Bind to an existing Lua API without writing boilerplate:
+
+```
+extern module playdate.graphics {
+  fn clear() -> Unit
+  fn drawText(text: String, x: Int, y: Int) -> Unit
+}
+
+pub fn render(msg: String) -> Unit do
+  playdate.graphics.clear()
+  playdate.graphics.drawText(msg, 10, 10)
+end
+```
+
+## Language reference
+
+### Types
+
+| Syntax | Description |
+|---|---|
+| `Int`, `Float`, `Bool`, `String` | Primitive types |
+| `type Point { x: Int, y: Int }` | Record type |
+| `type Shape = \| Circle(Float) \| Rect { w: Float, h: Float }` | Sum type |
+| `type Option[T] = \| None \| Some(T)` | Generic sum type |
+
+### Bindings
+
+```
+let x = 42           -- immutable
+var count: Int = 0   -- mutable, explicit annotation optional
+count = count + 1
+```
+
+### Functions
+
+```
+fn add(a: Int, b: Int) -> Int do
+  a + b
+end
+
+let double = fn (x: Int) -> Int => x * 2
+```
+
+### Control flow
+
+```
+-- if expression
+if score > 100 then
+  "great"
+elseif score > 50 then
+  "ok"
+else
+  "try again"
+end
+
+-- while loop
+while alive do
+  tick()
+end
+
+-- range for loop
+for i in 0..10 do
+  process(i)
+end
+
+-- match expression
+match shape do
+  case Circle(r)         => 3.14 * r * r
+  case Rect { w, h }     => w * h
+end
+```
+
+### Modules
+
+```
+module my.package
+
+import other.module
+import other.module { foo, bar }
+```
+
+## Development
+
+```sh
+cargo fmt        # format
+cargo test       # run tests
+```
+
+## Architecture
+
+The compiler pipeline is:
+
+```
+source → lexer → parser → AST → name resolution → type checking → TIR → Lua codegen
+```
+
+See [`docs/luna_compiler_architecture_v0_1.md`](docs/luna_compiler_architecture_v0_1.md) for the full design.
