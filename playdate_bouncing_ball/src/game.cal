@@ -7,17 +7,75 @@ extern module playdate.graphics do
   extern fn drawText(text: String, x: Int, y: Int) -> Unit
 end
 
-pub fn render(ball_x: Int) -> Unit do
+type Ball {
+  x: Int,
+  y: Int,
+  vx: Int,
+  vy: Int
+}
+
+fn clamp(v: Int, lo: Int, hi: Int) -> Int do
+  if v < lo then
+    lo
+  elseif v > hi then
+    hi
+  else
+    v
+  end
+end
+
+fn clamp_x(v: Int) -> Int do
+  clamp(v, 0, 380)
+end
+
+fn clamp_y(v: Int) -> Int do
+  clamp(v, 20, 220)
+end
+
+fn bounce_x(moved_x: Int, vx: Int) -> Int do
+  if moved_x < 0 then
+    0 - vx
+  elseif moved_x > 380 then
+    0 - vx
+  else
+    vx
+  end
+end
+
+fn bounce_y(moved_y: Int, vy: Int) -> Int do
+  if moved_y < 20 then
+    0 - vy
+  elseif moved_y > 220 then
+    0 - vy
+  else
+    vy
+  end
+end
+
+pub fn render(ball: Ball) -> Unit do
   graphics.clear()
-  graphics.drawText("O", ball_x, 120)
+  graphics.drawText("O", ball.x, ball.y)
+  graphics.drawText("Crank to curve", 8, 8)
   ()
 end
 
-pub fn next_x(ball_x: Int) -> Int do
-  let moved = ball_x + 3
-  if moved > 380 then
-    0
-  else
-    moved
-  end
+pub fn step(ball: Ball, crank_delta: Int) -> Ball do
+  let max_vy = 8
+  let boosted_vy = ball.vy + (crank_delta / 4)
+  let target_vy = clamp(boosted_vy, 0 - max_vy, max_vy)
+
+  let moved_x = ball.x + ball.vx
+  let moved_y = ball.y + target_vy
+
+  let next_x = clamp_x(moved_x)
+  let next_y = clamp_y(moved_y)
+  let next_vx = bounce_x(moved_x, ball.vx)
+  let next_vy = bounce_y(moved_y, target_vy)
+
+  Ball {
+    x = next_x,
+    y = next_y,
+    vx = next_vx,
+    vy = next_vy
+  }
 end

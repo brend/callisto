@@ -2,6 +2,7 @@
 
 A tiny Playdate sample using the Callisto workflow from `docs/playdate_workflow.md`.
 It follows the documented `Source/main.lua` shim pattern: Lua owns frame-to-frame state, while gameplay logic is implemented in Callisto.
+Turn the crank to change vertical velocity and curve the ball's trajectory.
 
 ## Layout
 
