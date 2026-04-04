@@ -28,9 +28,9 @@ Use this as the release gate before cutting `v0.3.0`.
 
 - [x] Build release binary with `cargo build --release`.
 - [x] Smoke-test `target/release/callisto` for `check`, `emit-lua`, `init`, and `build-playdate`.
-- [ ] Finalize `CHANGELOG.md` `Unreleased` section into `0.3.0` dated entry.
-- [ ] Tag release commit as `v0.3.0`.
-- [ ] Build and verify final release artifact from the tagged commit.
+- [x] Finalize `CHANGELOG.md` `Unreleased` section into `0.3.0` dated entry.
+- [x] Tag release commit as `v0.3.0`.
+- [x] Build and verify final release artifact from the tagged commit.
 
 ## Documentation
 
@@ -42,5 +42,5 @@ Use this as the release gate before cutting `v0.3.0`.
 ## Sign-off
 
 - [ ] Release checklist reviewed by maintainer.
-- [ ] Release commit prepared (no unrelated workspace changes).
-- [ ] `v0.3.0` announcement notes drafted.
+- [x] Release commit prepared (no unrelated workspace changes).
+- [x] `v0.3.0` announcement notes drafted.

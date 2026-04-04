@@ -124,7 +124,7 @@ Acceptance criteria:
 - Updated docs (`README`, cheat sheet, workflow guide) to reflect the first-party Playdate flow.
 - Extended `playdate_auto_bootstrap` sample with input-driven multi-scene rendering (`Splash`, `Pilot`, `Telemetry`) and crank telemetry labels.
 
-## M4 Status (In Progress on Current Branch)
+## M4 Status (Implemented on Current Branch)
 
 `M4` progress on the current branch:
 - Added `docs/v0_3_m4_release_checklist.md`.
@@ -137,10 +137,11 @@ Acceptance criteria:
   - `init --template playdate`
   - `build-playdate` (using a fake `pdc` in temp dirs)
   - plus release `check` and `emit-lua --playdate-bootstrap`.
-- Remaining `M4` work: finalize `0.3.0` changelog section, tag release commit, and prepare announcement notes.
+- Finalized `CHANGELOG.md` into dated `0.3.0` release notes.
+- Added `docs/v0_3_announcement_draft.md` for release messaging.
 
 ## Immediate Next Tasks
 
-1. Finalize `0.3.0` release notes in `CHANGELOG.md` and cut the release tag.
-2. Draft `v0.3.0` announcement notes.
-3. Extend richer sample coverage with state persistence and explicit transitions beyond input-hold states.
+1. Post-`v0.3.0`: extend richer sample coverage with state persistence and explicit transitions beyond input-hold states.
+2. Continue sample-driven binding additions only as required by richer samples.
+3. Start drafting `v0.4` scope candidates from Playdate workflow pain points.

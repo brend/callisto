@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-04
+
 ### Added
 - `--playdate-bootstrap` flag on `emit-lua`/`build` to generate a Playdate `main.lua` shim for directory outputs.
 - Validation for Playdate bootstrap generation (requires entry module `pub fn update() -> Unit` and avoids `main.lua` overwrite collisions).
