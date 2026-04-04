@@ -59,6 +59,7 @@ Current shared modules:
 - `playdate.audio`
 - `playdate.graphics`
 - `playdate.input`
+- `playdate.system`
 - `playdate.graphics.sprite`
 - `playdate.timer`
 
@@ -68,6 +69,7 @@ import playdate
 import playdate.audio
 import playdate.graphics
 import playdate.input
+import playdate.system
 ```
 
 Calls emit as `playdate.graphics.clear()`, `playdate.getCrankChange()`, etc.
@@ -114,6 +116,7 @@ local player = import "player"    -- sets _ENV.player implicitly under Playdate'
 local level  = import "level"
 playdate.audio = import "playdate/audio"
 playdate.input = import "playdate/input"
+playdate.system = import "playdate/system"
 ```
 
 Playdate's `import` (not standard Lua `require`) executes the file in the global scope if it returns nothing, or assigns the return value. Since each Callisto module returns `M`, you need explicit assignment.
@@ -142,7 +145,7 @@ The Playdate Simulator has a "Reload Game" hotkey (`⌘R`) — combine with fswa
 ## Reference Projects
 
 - `playdate_bouncing_ball/`: manual `Source/main.lua` shim pattern (state owned by Lua).
-  Uses records, `impl` methods, sum types, and `match` in gameplay logic.
+  Uses records, `impl` methods, sum types, generics, and `match` in gameplay logic.
 - `playdate_auto_bootstrap/`: auto-shim pattern using `--playdate-bootstrap`.
 
 ## What to Build Next (Priority Order)

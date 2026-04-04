@@ -3,6 +3,12 @@ module game
 import playdate.graphics
 import playdate.input
 import playdate.audio
+import playdate.system
+
+extern module playdate.audio do
+  extern fn bounce_blip() -> Unit
+  extern fn reset_chime() -> Unit
+end
 
 type Ball {
   x: Int,
@@ -80,6 +86,14 @@ fn mode_label(mode: ControlMode) -> String do
   match mode do
     case Crank => "Mode: Crank (hold A for d-pad)"
     case Buttons => "Mode: D-pad (B resets)"
+  end
+end
+
+fn crank_side_label() -> String do
+  if system.crank_is_right_half() then
+    "Crank side: right"
+  else
+    "Crank side: left"
   end
 end
 
@@ -175,6 +189,7 @@ pub fn render(ball: Ball) -> Unit do
   graphics.drawText(mode_label(mode), 8, 8)
   graphics.drawText("A hold: d-pad mode", 8, 24)
   graphics.drawText("B: reset ball", 8, 40)
+  graphics.drawText(crank_side_label(), 8, 56)
   ()
 end
 

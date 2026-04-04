@@ -13,14 +13,19 @@ All notable changes to this project will be documented in this file.
 - `v0.3` planning docs: draft plan and `M1` execution checklist.
 - Shared `playdate.input` binding helper module.
 - Shared `playdate.audio` binding helper module (sample-driven sound wrappers).
+- Shared `playdate.system` binding helper module (crank-position wrappers).
 - `v0.3` `M2` binding-execution checklist.
-- Regression tests for emitted Lua paths in `playdate.input` and `playdate.audio` bindings.
+- Regression tests for emitted Lua paths in `playdate.input`, `playdate.audio`, and `playdate.system` bindings.
 
 ### Changed
 - Playdate workflow docs and CLI cheat sheet now document bootstrap flow and shared binding module-root usage.
 - `playdate_bouncing_ball` now consumes shared bindings via `module_roots`.
 - `playdate_bouncing_ball` gameplay now exercises more language features (sum types, `match`, `impl`, and record updates).
 - `playdate_bouncing_ball` now includes sample-driven sound effects and a generic helper in gameplay flow.
+- `playdate_bouncing_ball` now integrates system wrappers and displays a crank-side indicator.
+
+### Fixed
+- `playdate_bouncing_ball` audio path no longer crashes when runtime sound APIs are unavailable; manual shim now guards unsafe calls.
 
 ## [0.2.0] - 2026-04-04
 

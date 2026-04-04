@@ -1,29 +1,24 @@
 local M = {}
 
-local wave_square
-local wave_triangle
-local bounce_blip
-local reset_chime
+local function safe_play_note(freq, length, waveform)
+    local snd = playdate and playdate.sound
+    if not snd then
+        return
+    end
 
-wave_square = function()
-    return 1
+    local note_fn = snd.playNote
+    if type(note_fn) == "function" then
+        note_fn(freq, length, waveform)
+        return
+    end
 end
 
-wave_triangle = function()
-    return 2
+function M.bounce_blip()
+    safe_play_note(720.0, 0.04, 1)
 end
 
-bounce_blip = function()
-    playdate.sound.playNote(720.0, 0.04, wave_square())
-    return nil
+function M.reset_chime()
+    safe_play_note(440.0, 0.08, 2)
 end
-
-reset_chime = function()
-    playdate.sound.playNote(440.0, 0.08, wave_triangle())
-    return nil
-end
-
-M.bounce_blip = bounce_blip
-M.reset_chime = reset_chime
 
 return M

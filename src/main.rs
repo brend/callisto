@@ -1986,6 +1986,54 @@ end
     }
 
     #[test]
+    fn emit_lua_playdate_system_binding_emits_crank_paths() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_playdate_system_emit_{}", nonce));
+        let out_dir = root.join("out");
+        std::fs::create_dir_all(&root).expect("failed to create root");
+
+        let entry = root.join("main.cal");
+        std::fs::write(
+            &entry,
+            r#"
+module app
+
+import playdate.system
+
+pub fn right_half() -> Bool do
+  system.crank_is_right_half()
+end
+"#,
+        )
+        .expect("failed to write entry");
+
+        let bindings_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("playdate_bindings")
+            .join("src");
+        emit_lua_command_with_overrides(
+            &entry,
+            Some(out_dir.as_path()),
+            None,
+            std::slice::from_ref(&bindings_root),
+            false,
+        )
+        .expect("emit failed");
+
+        let system_lua = out_dir.join("playdate").join("system.lua");
+        let system_text = std::fs::read_to_string(&system_lua).expect("read system lua");
+        assert!(system_text.contains("playdate.getCrankPosition"), "{system_text}");
+        assert!(
+            system_text.contains("M.crank_is_right_half = crank_is_right_half"),
+            "{system_text}"
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn nullary_constructor_pattern_is_not_lowered_as_bind() {
         let source = r#"
 type MaybeInt = | None | Some(Int)

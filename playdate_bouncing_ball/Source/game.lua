@@ -8,6 +8,7 @@ local clamp_y
 local bounce_x
 local bounce_y
 local mode_label
+local crank_side_label
 local choose_mode
 local control_delta
 local sfx_code
@@ -50,6 +51,10 @@ end
 
 mode_label = function(mode)
     return (function(__scrutinee) if __scrutinee.tag == "Crank" then return "Mode: Crank (hold A for d-pad)" elseif __scrutinee.tag == "Buttons" then return "Mode: D-pad (B resets)" else error("non-exhaustive match") end end)(mode)
+end
+
+crank_side_label = function()
+    return (function() if playdate.system.crank_is_right_half() then return "Crank side: right" else return "Crank side: left" end end)()
 end
 
 choose_mode = function()
@@ -100,6 +105,7 @@ render = function(ball)
     playdate.graphics.drawText(mode_label(l39), 8, 8)
     playdate.graphics.drawText("A hold: d-pad mode", 8, 24)
     playdate.graphics.drawText("B: reset ball", 8, 40)
+    playdate.graphics.drawText(crank_side_label(), 8, 56)
     return nil
 end
 

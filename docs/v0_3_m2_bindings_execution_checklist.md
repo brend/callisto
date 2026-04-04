@@ -51,6 +51,7 @@ Use this as the implementation board for post-`M1` Playdate product work.
 
 - [x] Add emission regression tests for `playdate.input` Lua paths.
 - [x] Add emission regression tests for `playdate.audio` Lua paths.
+- [x] Add emission regression tests for `playdate.system` Lua paths.
 
 ## Definition of Done (M2)
 

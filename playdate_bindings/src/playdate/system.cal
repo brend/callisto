@@ -1,0 +1,12 @@
+module playdate.system
+
+import playdate
+
+pub fn crank_is_right_half() -> Bool do
+  playdate.getCrankPosition() >= 180.0
+end
+
+pub fn crank_is_top_half() -> Bool do
+  let pos = playdate.getCrankPosition()
+  pos >= 90.0 and pos <= 270.0
+end

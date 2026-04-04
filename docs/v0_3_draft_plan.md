@@ -86,31 +86,30 @@ Acceptance criteria:
 - New `playdate_auto_bootstrap` sample added with end-to-end auto-shim flow.
 - Tests added for CLI parsing and bootstrap emission behavior.
 
-## M2 Status (In Progress on Current Branch)
+## M2 Status (Implemented on Current Branch)
 
 `M2` progress on the current branch:
 - Added shared `playdate.input` module with button helpers.
 - Added shared `playdate.audio` module with sample-driven sound helpers.
+- Added shared `playdate.system` module with crank-position wrappers.
 - Updated `playdate_bouncing_ball` to consume input bindings and exercise additional language features:
   - sum types (`ControlMode`, `StepResult`)
   - exhaustive `match`
   - `impl` method (`Ball.moved`)
   - record updates (`with`)
   - generic helper (`unwrap_or[T]`) used in sound-effect dispatch
-  - manual shim preload of `playdate/input` for runtime wiring
+  - manual shim preload of `playdate/input`, `playdate/audio`, and `playdate/system` for runtime wiring
+  - runtime-safe hand-written audio shim to prevent missing-SDK-path crashes
 - Added regression tests guarding emitted Lua paths for:
   - `playdate.input` helpers
   - `playdate.audio` wrappers
+  - `playdate.system` wrappers
 - Verified sample build smoke for:
   - `make -C playdate_bouncing_ball build-lua`
   - `make -C playdate_auto_bootstrap build-lua`
 
-Remaining `M2` actions:
-- Expand bindings for additional concrete SDK surfaces as needed by richer samples (system/timer/input variants).
-- Add sample-driven validation for each newly introduced binding surface as modules are added.
-
 ## Immediate Next Tasks
 
-1. Expand the next concrete bindings slice based on richer sample needs (system/timer APIs).
+1. Start `M3` by defining a first-party Playdate project template/build UX workflow.
 2. Add a richer gameplay sample or extend auto-bootstrap demo with multiple gameplay states.
-3. Evaluate first-party Playdate build-template or command ergonomics for `M3`.
+3. Continue sample-driven binding additions only as required by the `M3` workflow and new samples.
