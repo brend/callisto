@@ -49,6 +49,11 @@ Use this as the implementation board for first-party Playdate template and build
 - [x] Update `docs/playdate_workflow.md` with `build-playdate` as the first-party path.
 - [x] Record M3 status in `docs/v0_3_draft_plan.md`.
 
+### D) Sample Product UX
+
+- [x] Extend `playdate_auto_bootstrap` with multiple input-driven scenes to validate first-party workflow usability.
+- [x] Update `playdate_auto_bootstrap/README.md` with both legacy and first-party build commands.
+
 ## Definition of Done (M3)
 
 - [x] Callisto can scaffold a Playdate-ready project from a single command.

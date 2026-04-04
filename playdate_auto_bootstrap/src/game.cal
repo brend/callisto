@@ -3,20 +3,109 @@ module game
 import playdate
 import playdate.graphics
 
-fn draw_crank_direction(delta: Float) -> Unit do
-  if delta > 0.0 then
-    graphics.drawText("Crank: +", 20, 72)
-  elseif delta < 0.0 then
-    graphics.drawText("Crank: -", 20, 72)
-  else
-    graphics.drawText("Crank: 0", 20, 72)
+type Scene = | Splash | Pilot | Telemetry
+type CrankDirection = | Clockwise | CounterClockwise | Still
+type CrankSide = | Left | Right
+
+type ViewModel {
+  scene: Scene,
+  direction: CrankDirection,
+  side: CrankSide
+}
+
+impl ViewModel do
+  fn heading(self: ViewModel) -> String do
+    match self.scene do
+      case Splash => "Hold A/B to switch scene"
+      case Pilot => "Pilot: crank to steer"
+      case Telemetry => "Telemetry: inspect input state"
+    end
   end
 end
 
+fn k_button_b() -> Int do
+  16
+end
+
+fn k_button_a() -> Int do
+  32
+end
+
+fn read_scene() -> Scene do
+  if playdate.buttonIsPressed(k_button_a()) then
+    Pilot
+  elseif playdate.buttonIsPressed(k_button_b()) then
+    Telemetry
+  else
+    Splash
+  end
+end
+
+fn read_direction(delta: Float) -> CrankDirection do
+  if delta > 0.0 then
+    Clockwise
+  elseif delta < 0.0 then
+    CounterClockwise
+  else
+    Still
+  end
+end
+
+fn read_side(position: Float) -> CrankSide do
+  if position >= 180.0 then
+    Right
+  else
+    Left
+  end
+end
+
+fn scene_title(scene: Scene) -> String do
+  match scene do
+    case Splash => "Scene: Splash"
+    case Pilot => "Scene: Pilot"
+    case Telemetry => "Scene: Telemetry"
+  end
+end
+
+fn direction_label(direction: CrankDirection) -> String do
+  match direction do
+    case Clockwise => "Crank: +"
+    case CounterClockwise => "Crank: -"
+    case Still => "Crank: 0"
+  end
+end
+
+fn side_label(side: CrankSide) -> String do
+  match side do
+    case Right => "Crank side: right"
+    case Left => "Crank side: left"
+  end
+end
+
+fn scene_hint(scene: Scene) -> String do
+  match scene do
+    case Splash => "Release A/B to return here"
+    case Pilot => "Use crank for direction changes"
+    case Telemetry => "Watch side + direction labels"
+  end
+end
+
+fn build_view() -> ViewModel do
+  let base = ViewModel { scene = Splash, direction = Still, side = Left }
+  let with_scene = base with { scene = read_scene() }
+  let with_direction = with_scene with { direction = read_direction(playdate.getCrankChange()) }
+  with_direction with { side = read_side(playdate.getCrankPosition()) }
+end
+
 pub fn update() -> Unit do
+  let model = build_view()
   graphics.clear()
   graphics.drawText("Callisto + Playdate", 20, 30)
-  graphics.drawText("Auto bootstrap demo", 20, 50)
-  draw_crank_direction(playdate.getCrankChange())
+  graphics.drawText("Auto bootstrap state demo", 20, 50)
+  graphics.drawText(model.heading(), 20, 70)
+  graphics.drawText(scene_title(model.scene), 20, 90)
+  graphics.drawText(direction_label(model.direction), 20, 110)
+  graphics.drawText(side_label(model.side), 20, 130)
+  graphics.drawText(scene_hint(model.scene), 20, 150)
   ()
 end

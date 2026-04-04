@@ -121,9 +121,10 @@ Acceptance criteria:
 - Added CLI parser tests for `init`/`build-playdate` flows and invalid template handling.
 - Added runtime tests for template creation behavior and `build-playdate` invocation with a fake `pdc`.
 - Updated docs (`README`, cheat sheet, workflow guide) to reflect the first-party Playdate flow.
+- Extended `playdate_auto_bootstrap` sample with input-driven multi-scene rendering (`Splash`, `Pilot`, `Telemetry`) and crank telemetry labels.
 
 ## Immediate Next Tasks
 
 1. Start `M4` release-readiness pass for `v0.3.0` (regression sweep + docs/changelog freeze).
-2. Add a richer gameplay sample or extend auto-bootstrap demo with multiple gameplay states.
+2. Extend richer sample coverage with state persistence and explicit transitions beyond input-hold states.
 3. Continue sample-driven binding additions only as required by richer samples.

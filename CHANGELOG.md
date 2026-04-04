@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Playdate workflow docs and CLI cheat sheet now document bootstrap flow and shared binding module-root usage.
 - Playdate workflow docs now treat `build-playdate` as the first-party build path while keeping manual flow documented.
+- `playdate_auto_bootstrap` now demonstrates a richer multi-scene HUD flow with crank telemetry labels.
 - `playdate_bouncing_ball` now consumes shared bindings via `module_roots`.
 - `playdate_bouncing_ball` gameplay now exercises more language features (sum types, `match`, `impl`, and record updates).
 - `playdate_bouncing_ball` now includes sample-driven sound effects and a generic helper in gameplay flow.

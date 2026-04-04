@@ -2,6 +2,13 @@
 
 Small Playdate sample that uses Callisto's `--playdate-bootstrap` output mode.
 
+The sample now includes an input-driven multi-scene HUD:
+- default `Splash` view (no A/B held)
+- `Pilot` view while holding `A`
+- `Telemetry` view while holding `B`
+
+It also displays crank direction and crank-side labels every frame.
+
 ## Layout
 
 - `src/game.cal`: entry module with `pub fn update() -> Unit`
@@ -16,6 +23,12 @@ From this directory:
 
 ```sh
 make build-lua
+```
+
+Or use the first-party one-command path:
+
+```sh
+../target/debug/callisto build-playdate src/game.cal --config callisto.toml --pdx AutoBootstrap.pdx
 ```
 
 To build `.pdx` (requires Playdate SDK `pdc`):

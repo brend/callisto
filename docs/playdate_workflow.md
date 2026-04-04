@@ -148,6 +148,7 @@ The Playdate Simulator has a "Reload Game" hotkey (`⌘R`) — combine with fswa
 - `playdate_bouncing_ball/`: manual `Source/main.lua` shim pattern (state owned by Lua).
   Uses records, `impl` methods, sum types, generics, and `match` in gameplay logic.
 - `playdate_auto_bootstrap/`: auto-shim pattern using `--playdate-bootstrap`.
+  Includes input-driven multi-scene rendering (`Splash`, `Pilot`, `Telemetry`) with crank telemetry labels.
 
 ## What to Build Next (Priority Order)
 
