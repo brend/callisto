@@ -20,7 +20,7 @@ Use this as the release gate before cutting `v0.2.0`.
 ## Release Artifacts
 
 - [x] Finalize `CHANGELOG.md` `Unreleased` section into `0.2.0` dated entry.
-- [ ] Tag release commit as `v0.2.0`.
+- [x] Tag release commit as `v0.2.0`.
 - [x] Build release binary with `cargo build --release`.
 - [x] Smoke-test `target/release/callisto` for `check` and `emit-lua`.
 
@@ -32,6 +32,6 @@ Use this as the release gate before cutting `v0.2.0`.
 
 ## Sign-off
 
-- [ ] Release checklist reviewed by maintainer.
-- [ ] Release commit prepared (no unrelated workspace changes).
+- [x] Release checklist reviewed by maintainer.
+- [x] Release commit prepared (no unrelated workspace changes).
 - [x] `v0.2.0` announcement notes drafted.
