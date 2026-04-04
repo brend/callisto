@@ -1,3 +1,3 @@
 out_dir = "Source"
 module_roots = ["src", "../playdate_bindings/src"]
-package = "playdate.bouncing_ball"
+package = "playdate.auto_bootstrap"

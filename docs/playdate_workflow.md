@@ -4,6 +4,10 @@
 
 Callisto compiles `.cal` source to Lua. The Panic Playdate runs Lua 5.4 via its SDK, where games are structured as a folder with `main.lua` (plus assets), compiled by `pdc` into a `.pdx` bundle. The goal is to define the full loop: write Callisto → emit Lua → run on simulator/device.
 
+Current planning docs:
+- [`docs/v0_3_draft_plan.md`](docs/v0_3_draft_plan.md)
+- [`docs/v0_3_m1_playdate_execution_checklist.md`](docs/v0_3_m1_playdate_execution_checklist.md)
+
 ---
 
 ## Build Pipeline
@@ -42,23 +46,26 @@ my-game/
 
 ## Playdate SDK Bindings (Works Today)
 
-The SDK is accessed through Lua globals (`playdate.graphics.sprite.new()`, etc.). The cleanest shared-binding pattern is module-path files with `pub extern fn` declarations:
+The SDK is accessed through Lua globals (`playdate.graphics.sprite.new()`, etc.).  
+Use the shared bindings package at `playdate_bindings/src` and add it to project module roots:
 
-**Create `src/playdate/graphics.cal`:**
-```callisto
-module playdate.graphics
-
-pub extern fn clear() -> Unit
-pub extern fn setColor(color: Int) -> Unit
-pub extern fn drawText(text: String, x: Int, y: Int) -> Unit
+```toml
+module_roots = ["src", "../playdate_bindings/src"]
 ```
 
-Then use it from game code with:
+Current shared modules:
+- `playdate`
+- `playdate.graphics`
+- `playdate.graphics.sprite`
+- `playdate.timer`
+
+Then import the modules you need:
 ```callisto
+import playdate
 import playdate.graphics
 ```
 
-Calls still emit as `playdate.graphics.clear()`, `playdate.graphics.sprite.new()`, etc.
+Calls emit as `playdate.graphics.clear()`, `playdate.getCrankChange()`, etc.
 
 ---
 
@@ -125,15 +132,17 @@ The Playdate Simulator has a "Reload Game" hotkey (`⌘R`) — combine with fswa
 
 ---
 
+## Reference Projects
+
+- `playdate_bouncing_ball/`: manual `Source/main.lua` shim pattern (state owned by Lua).
+- `playdate_auto_bootstrap/`: auto-shim pattern using `--playdate-bootstrap`.
+
 ## What to Build Next (Priority Order)
 
-1. **Expand shared SDK bindings** — Grow `playdate/*` module coverage (`graphics.sprite`, `input`, `sound`, `timer`) with `pub extern fn` declarations.
-
-2. **A small real game** (e.g., Pong or a bouncing ball) — Acts as a living integration test and drives what bindings are missing.
-
-3. **Bootstrap customization** — Extend `--playdate-bootstrap` with configurable update target and optional multi-import preloads.
-
-4. **Playdate-oriented build glue** — Add a first-party command or template that runs `callisto build` + `pdc` with stable output paths.
+1. **Expand SDK coverage** — Add shared bindings for the next concrete APIs needed by samples.
+2. **Richer sample game** — Build a larger game loop that drives binding gaps and ergonomics.
+3. **Bootstrap customization** — Extend `--playdate-bootstrap` with configurable update target and optional preload imports.
+4. **Playdate build UX** — Add first-party template/command ergonomics for `callisto build` + `pdc`.
 
 ---
 

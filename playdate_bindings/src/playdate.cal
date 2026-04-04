@@ -1,0 +1,7 @@
+module playdate
+
+pub extern fn getCrankChange() -> Float
+pub extern fn getCrankPosition() -> Float
+pub extern fn buttonIsPressed(button: Int) -> Bool
+pub extern fn buttonJustPressed(button: Int) -> Bool
+pub extern fn buttonJustReleased(button: Int) -> Bool

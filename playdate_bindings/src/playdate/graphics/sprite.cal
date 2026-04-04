@@ -1,0 +1,4 @@
+module playdate.graphics.sprite
+
+pub extern fn new() -> Unit
+pub extern fn update() -> Unit

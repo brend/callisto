@@ -1,0 +1,3 @@
+module playdate.timer
+
+pub extern fn updateTimers() -> Unit
