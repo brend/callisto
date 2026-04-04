@@ -39,6 +39,21 @@ impl Diagnostics {
         });
     }
 
+    pub fn error_with_note(
+        &mut self,
+        span: Span,
+        message: impl Into<String>,
+        note_span: Span,
+        note: impl Into<String>,
+    ) {
+        self.push(Diagnostic {
+            level: DiagnosticLevel::Error,
+            message: message.into(),
+            primary_span: span,
+            notes: vec![(note_span, note.into())],
+        });
+    }
+
     pub fn warning(&mut self, span: Span, message: impl Into<String>) {
         self.push(Diagnostic {
             level: DiagnosticLevel::Warning,

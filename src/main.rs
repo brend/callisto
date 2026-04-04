@@ -22,8 +22,8 @@ use std::{
 
 use cli::{Cli, Command};
 use diagnostics::Diagnostics;
-use span::FileId;
 use source::SourceDb;
+use span::FileId;
 
 fn main() {
     match run() {
@@ -164,8 +164,12 @@ fn compile_project(
 
     let mut compiled_modules = Vec::new();
     for module in &parsed_modules {
-        let ast_for_compile =
-            synthesize_import_declarations(module, &parsed_modules, &modules_by_path, &mut diagnostics);
+        let ast_for_compile = synthesize_import_declarations(
+            module,
+            &parsed_modules,
+            &modules_by_path,
+            &mut diagnostics,
+        );
         let (resolved, resolve_diags) = resolve::resolve(&ast_for_compile);
         diagnostics.extend(resolve_diags);
         let (tir, type_diags) = typecheck::typecheck_and_lower(&resolved);
@@ -207,9 +211,11 @@ fn compile_pipeline(
 > {
     let (sources, entry_ast, diagnostics, project) = compile_project(input)?;
     let compiled = project.and_then(|project| {
-        project.modules.into_iter().nth(project.entry_index).map(|entry| {
-            (entry.resolved, entry.tir)
-        })
+        project
+            .modules
+            .into_iter()
+            .nth(project.entry_index)
+            .map(|entry| (entry.resolved, entry.tir))
     });
     Ok((sources, entry_ast, diagnostics, compiled))
 }
@@ -372,7 +378,9 @@ fn synthesize_import_declarations(
             let mut funcs = Vec::new();
             for decl in &imported.ast.decls {
                 match decl {
-                    ast::TopDecl::Func(func_decl) if matches!(func_decl.vis, ast::Visibility::Public) => {
+                    ast::TopDecl::Func(func_decl)
+                        if matches!(func_decl.vis, ast::Visibility::Public) =>
+                    {
                         funcs.push(ast::ExternFuncDecl {
                             span: func_decl.span,
                             vis: ast::Visibility::Private,
@@ -392,18 +400,21 @@ fn synthesize_import_declarations(
                 }
             }
             if !funcs.is_empty() {
-                ast.decls.push(ast::TopDecl::ExternModule(ast::ExternModuleDecl {
-                    span: import.span,
-                    vis: ast::Visibility::Private,
-                    path: import.path.clone(),
-                    funcs,
-                }));
+                ast.decls
+                    .push(ast::TopDecl::ExternModule(ast::ExternModuleDecl {
+                        span: import.span,
+                        vis: ast::Visibility::Private,
+                        path: import.path.clone(),
+                        funcs,
+                    }));
             }
         }
 
         for decl in &imported.ast.decls {
             let extern_type = match decl {
-                ast::TopDecl::Type(type_decl) if matches!(type_decl.vis, ast::Visibility::Public) => {
+                ast::TopDecl::Type(type_decl)
+                    if matches!(type_decl.vis, ast::Visibility::Public) =>
+                {
                     Some(ast::ExternTypeDecl {
                         span: type_decl.span,
                         vis: ast::Visibility::Private,
@@ -474,7 +485,12 @@ fn resolve_module_output_path(out_dir: &Path, input: &Path, module: &CompiledMod
         }
         let file_name = format!(
             "{}.lua",
-            module.parsed.module_path.last().cloned().unwrap_or_default()
+            module
+                .parsed
+                .module_path
+                .last()
+                .cloned()
+                .unwrap_or_default()
         );
         path.push(file_name);
         return path;
@@ -1173,6 +1189,12 @@ end
                 .iter()
                 .any(|d| d.message.contains("constructor does not accept a payload"))
         );
+        assert!(type_diags.items.iter().any(|d| {
+            d.message.contains("constructor does not accept a payload")
+                && d.notes
+                    .iter()
+                    .any(|(_, note)| note.contains("remove the payload"))
+        }));
     }
 
     #[test]
@@ -1206,6 +1228,12 @@ end
                 .iter()
                 .any(|d| d.message.contains("unknown field 'z' in record update"))
         );
+        assert!(type_diags.items.iter().any(|d| {
+            d.message.contains("unknown field 'z' in record update")
+                && d.notes
+                    .iter()
+                    .any(|(_, note)| note.contains("expected fields: x, y"))
+        }));
     }
 
     #[test]
@@ -1379,5 +1407,114 @@ end
         assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
         let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
         assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+    }
+
+    #[test]
+    fn generic_record_constructor_without_type_context_reports_inference_failure() {
+        let source = r#"
+type Phantom[T] { value: Int }
+
+fn main() -> Unit do
+  let p = Phantom { value = 1 }
+  ()
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.message.contains("could not infer generic type parameter")
+                && d.message.contains("record initializer 'Phantom'")
+        }));
+    }
+
+    #[test]
+    fn alias_mismatch_failure_is_reported() {
+        let source = r#"
+type Id[T] = T
+
+fn takes_id(x: Id[Int]) -> Int do
+  x
+end
+
+fn main() -> Int do
+  takes_id(true)
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.message.contains("argument 1 expects")
+                && d.message.contains("Named(TypeId(")
+                && d.message.contains("Bool")
+        }));
+    }
+
+    #[test]
+    fn calling_imported_module_alias_as_function_reports_clear_error() {
+        let source = r#"
+import foo.bar
+
+extern module foo.bar do
+  extern fn baz(x: Int) -> Int
+end
+
+fn main() -> Int do
+  bar(1)
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.message
+                .contains("cannot call imported module 'foo.bar' as a function")
+                && d.notes.iter().any(|(_, note)| note.contains("module path"))
+        }));
+    }
+
+    #[test]
+    fn reports_non_exhaustive_match_for_generic_sum_types() {
+        let source = r#"
+type Option[T] = | None | Some(T)
+
+fn unwrap(v: Option[Int]) -> Int do
+  match v do
+    case Some(x) => x
+  end
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.message
+                .contains("non-exhaustive match, missing variants: None")
+        }));
     }
 }

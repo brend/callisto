@@ -499,16 +499,62 @@ impl<'a> Checker<'a> {
                     },
                 )
             }
-            Type::Error => self.mk_expr(
-                Type::Error,
-                TirExprKind::Call {
-                    callee: Box::new(callee_tir),
-                    args: args_tir,
-                },
-            ),
+            Type::Error => {
+                if let TirExprKind::ExternPath(segments) = &callee_tir.kind {
+                    if self.is_imported_module_path(segments) {
+                        let module_path = segments.join(".");
+                        self.diagnostics.error_with_note(
+                            span,
+                            format!("cannot call imported module '{}' as a function", module_path),
+                            callee.span,
+                            format!(
+                                "'{}' is a module path; call one of its members (for example '{}.<fn>')",
+                                module_path, module_path
+                            ),
+                        );
+                    }
+                }
+                self.mk_expr(
+                    Type::Error,
+                    TirExprKind::Call {
+                        callee: Box::new(callee_tir),
+                        args: args_tir,
+                    },
+                )
+            }
             _ => {
-                self.diagnostics
-                    .error(span, "attempted to call a non-function value");
+                if let TirExprKind::ExternPath(segments) = &callee_tir.kind {
+                    if self.is_imported_module_path(segments) {
+                        let module_path = segments.join(".");
+                        self.diagnostics.error_with_note(
+                            span,
+                            format!("cannot call imported module '{}' as a function", module_path),
+                            callee.span,
+                            format!(
+                                "'{}' is a module path; call one of its members (for example '{}.<fn>')",
+                                module_path, module_path
+                            ),
+                        );
+                    } else {
+                        self.diagnostics.error_with_note(
+                            span,
+                            "attempted to call an unresolved path as a function",
+                            callee.span,
+                            format!(
+                                "'{}' does not resolve to a declared function or extern",
+                                segments.join(".")
+                            ),
+                        );
+                    }
+                } else {
+                    self.diagnostics.error(
+                        span,
+                        format!(
+                            "attempted to call a non-function value (type: {:?})",
+                            callee_tir.ty
+                        ),
+                    );
+                }
                 self.mk_expr(
                     Type::Error,
                     TirExprKind::Call {
@@ -1064,6 +1110,11 @@ impl<'a> Checker<'a> {
         {
             let subst = self.type_param_subst(type_id, &type_args);
             let expected_fields = self.instantiate_record_fields(expected_fields, &subst);
+            let expected_list = expected_fields
+                .iter()
+                .map(|f| f.name.clone())
+                .collect::<Vec<_>>()
+                .join(", ");
             for (name, value) in &updated {
                 if let Some(expected) = expected_fields.iter().find(|f| f.name == *name) {
                     if !self.is_assignable(&expected.ty, &value.ty) {
@@ -1076,8 +1127,12 @@ impl<'a> Checker<'a> {
                         );
                     }
                 } else {
-                    self.diagnostics
-                        .error(span, format!("unknown field '{}' in record update", name));
+                    self.diagnostics.error_with_note(
+                        span,
+                        format!("unknown field '{}' in record update", name),
+                        span,
+                        format!("expected fields: {}", expected_list),
+                    );
                 }
             }
         } else {
@@ -1422,17 +1477,26 @@ impl<'a> Checker<'a> {
         match (expected, got) {
             (VariantPayload::None, TirVariantPayload::None) => {}
             (VariantPayload::None, _) => {
-                self.diagnostics
-                    .error(span, "constructor does not accept a payload");
+                self.diagnostics.error_with_note(
+                    span,
+                    "constructor does not accept a payload",
+                    span,
+                    "remove the payload and use the nullary constructor form",
+                );
             }
             (VariantPayload::Positional(expected_tys), TirVariantPayload::Positional(values)) => {
                 if expected_tys.len() != values.len() {
-                    self.diagnostics.error(
+                    self.diagnostics.error_with_note(
                         span,
                         format!(
                             "constructor argument count mismatch: expected {}, got {}",
                             expected_tys.len(),
                             values.len()
+                        ),
+                        span,
+                        format!(
+                            "this constructor expects {} positional payload value(s)",
+                            expected_tys.len()
                         ),
                     );
                 }
@@ -1471,12 +1535,20 @@ impl<'a> Checker<'a> {
                 }
             }
             (VariantPayload::Positional(_), _) => {
-                self.diagnostics
-                    .error(span, "constructor requires positional payload");
+                self.diagnostics.error_with_note(
+                    span,
+                    "constructor requires positional payload",
+                    span,
+                    "use `Ctor(a, b, ...)` positional syntax for this constructor",
+                );
             }
             (VariantPayload::Record(_), _) => {
-                self.diagnostics
-                    .error(span, "constructor requires record payload");
+                self.diagnostics.error_with_note(
+                    span,
+                    "constructor requires record payload",
+                    span,
+                    "use `Ctor { field = value, ... }` payload syntax for this constructor",
+                );
             }
         }
     }
@@ -1589,14 +1661,34 @@ impl<'a> Checker<'a> {
         provided_fields: &[(String, crate::span::Span)],
         context: &str,
     ) {
+        let expected_list = if expected_fields.is_empty() {
+            "<none>".to_string()
+        } else {
+            expected_fields
+                .iter()
+                .map(|f| f.name.clone())
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        let provided_list = if provided_fields.is_empty() {
+            "<none>".to_string()
+        } else {
+            provided_fields
+                .iter()
+                .map(|(name, _)| name.clone())
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
         let expected_names: HashSet<&str> =
             expected_fields.iter().map(|f| f.name.as_str()).collect();
         let mut seen = HashSet::new();
         for (name, field_span) in provided_fields {
             if !expected_names.contains(name.as_str()) {
-                self.diagnostics.error(
+                self.diagnostics.error_with_note(
                     *field_span,
                     format!("unknown field '{}' in {}", name, context),
+                    span,
+                    format!("expected fields: {}", expected_list),
                 );
             }
             if !seen.insert(name.clone()) {
@@ -1609,9 +1701,11 @@ impl<'a> Checker<'a> {
 
         for expected in expected_fields {
             if !seen.contains(&expected.name) {
-                self.diagnostics.error(
+                self.diagnostics.error_with_note(
                     span,
                     format!("missing field '{}' in {}", expected.name, context),
+                    span,
+                    format!("provided fields: {}", provided_list),
                 );
             }
         }

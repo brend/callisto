@@ -39,9 +39,21 @@ Output defaults to `out/<module>.lua` when `-o` is not specified.
 
 ## v0.1 Scope
 
-- Compilation starts from one entry file and recursively loads imported module files from the entry directory root (`foo.bar` -> `foo/bar.luna|.cal` or `foo/bar/mod.luna|.cal`).
-- `import` can be satisfied either by loaded module files or by explicit `extern module` declarations in the current file.
-- Imported symbols must still have matching declarations (public functions from imported modules, or explicit extern declarations), otherwise type checking reports a clear error.
+Supported in `v0.1`:
+- Single-entry compilation with recursive module loading from the entry directory root (`foo.bar` -> `foo/bar.luna|.cal` or `foo/bar/mod.luna|.cal`).
+- End-to-end compiler pipeline (`parse`, `check`, `emit-lua`/`build`) with diagnostics surfaced in CLI output.
+- Type checking for records, sums, pattern matching, aliases (transparent), and generic constructor inference for common ADT use.
+- Imports resolved via loaded modules or explicit `extern module` declarations.
+
+Known exclusions in `v0.1`:
+- No package/dependency manager or configurable import roots (module discovery is entry-root-relative only).
+- No implicit import/extern fallback: unresolved imported members are hard type errors.
+- No nominal alias/newtype behavior (aliases are transparent in assignability/unification).
+
+Expected CLI behavior:
+- `callisto parse <file>` prints AST or syntax diagnostics.
+- `callisto check <file>` runs full semantic checking and emits diagnostics without Lua output.
+- `callisto emit-lua <file> [-o out.lua|dir]` (or `build`) writes Lua for the entry module and loaded imports when output is a directory.
 
 ## Examples
 

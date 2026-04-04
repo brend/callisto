@@ -36,25 +36,25 @@ This checklist tracks what is needed to call v0.1 complete against the architect
 ## Should-Do Before Release
 
 ### 4. Strengthen diagnostics quality
-- [ ] Improve messages around imports/extern path fallback (`attempted to call a non-function value` should identify unresolved import/function).
-- [ ] Add targeted notes for constructor/record payload mismatches.
+- [x] Improve messages around imports/extern path fallback (`attempted to call a non-function value` should identify unresolved import/function).
+- [x] Add targeted notes for constructor/record payload mismatches.
 - Exit criteria:
   - Key semantic failures identify the specific unresolved symbol or mismatch source.
 
 ### 5. Expand negative-path tests
-- [ ] Add tests for:
-  - generic ADT inference failures
-  - alias mismatch failures
-  - import module/item misuse
-  - non-exhaustive match with generics
+- [x] Add tests for:
+  - [x] generic ADT inference failures
+  - [x] alias mismatch failures
+  - [x] import module/item misuse
+  - [x] non-exhaustive match with generics
 - Exit criteria:
   - New failures are covered by deterministic tests in `cargo test`.
 
 ### 6. Stabilize release definition in docs
-- [ ] Add a short `v0.1 scope` section in README:
-  - supported features
-  - known exclusions
-  - expected CLI behavior
+- [x] Add a short `v0.1 scope` section in README:
+  - [x] supported features
+  - [x] known exclusions
+  - [x] expected CLI behavior
 - Exit criteria:
   - No ambiguity between architecture doc and actual compiler behavior.
 
