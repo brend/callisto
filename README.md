@@ -220,3 +220,5 @@ source → lexer → parser → AST → name resolution → type checking → TI
 ```
 
 See [`docs/luna_compiler_architecture_v0_1.md`](docs/luna_compiler_architecture_v0_1.md) for the full design.
+
+Planning for the next release is tracked in [`docs/v0_2_draft_plan.md`](docs/v0_2_draft_plan.md).
