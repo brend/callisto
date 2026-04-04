@@ -90,22 +90,24 @@ Acceptance criteria:
 
 `M2` progress on the current branch:
 - Added shared `playdate.input` module with button helpers.
+- Added shared `playdate.audio` module with sample-driven sound helpers.
 - Updated `playdate_bouncing_ball` to consume input bindings and exercise additional language features:
   - sum types (`ControlMode`, `StepResult`)
   - exhaustive `match`
   - `impl` method (`Ball.moved`)
   - record updates (`with`)
+  - generic helper (`unwrap_or[T]`) used in sound-effect dispatch
   - manual shim preload of `playdate/input` for runtime wiring
 - Verified sample build smoke for:
   - `make -C playdate_bouncing_ball build-lua`
   - `make -C playdate_auto_bootstrap build-lua`
 
 Remaining `M2` actions:
-- Expand bindings for additional concrete SDK surfaces as needed by richer samples (sound/system/input variants).
-- Add sample-driven validation for each newly introduced binding surface.
+- Expand bindings for additional concrete SDK surfaces as needed by richer samples (system/timer/input variants).
+- Add sample-driven validation for each newly introduced binding surface as modules are added.
 
 ## Immediate Next Tasks
 
-1. Add the next binding expansion slice driven by a richer gameplay sample (sound/system/input variants).
-2. Add checks/tests that guard expected emission paths for newly added binding modules.
+1. Add checks/tests that guard expected emission paths for newly added binding modules.
+2. Expand the next concrete bindings slice based on richer sample needs (system/timer APIs).
 3. Evaluate first-party Playdate build-template or command ergonomics for `M3`.

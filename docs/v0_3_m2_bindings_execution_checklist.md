@@ -31,7 +31,7 @@ Use this as the implementation board for post-`M1` Playdate product work.
 
 - [x] Add `playdate.input` helper module.
 - [x] Keep `playdate`, `playdate.graphics`, `playdate.graphics.sprite`, and `playdate.timer` organized under `playdate_bindings/src`.
-- [ ] Add next concrete surface (`playdate.sound` and/or additional system wrappers) driven by sample need.
+- [x] Add next concrete surface (`playdate.sound` and/or additional system wrappers) driven by sample need.
 
 ### B) Bouncing Ball Feature Utilization
 
@@ -39,7 +39,7 @@ Use this as the implementation board for post-`M1` Playdate product work.
 - [x] Use `match` for explicit control-mode/result handling.
 - [x] Use `impl` methods for domain behavior.
 - [x] Use record update expressions for state transitions.
-- [ ] Add one generic helper or additional ADT pattern where it improves clarity without overfitting.
+- [x] Add one generic helper or additional ADT pattern where it improves clarity without overfitting.
 
 ### C) Sample and Docs
 
@@ -49,7 +49,7 @@ Use this as the implementation board for post-`M1` Playdate product work.
 
 ## Definition of Done (M2)
 
-- [ ] Shared bindings cover required surfaces for at least one richer gameplay sample.
+- [x] Shared bindings cover required surfaces for at least one richer gameplay sample.
 - [x] `playdate_bouncing_ball` meaningfully exercises the implemented language feature set.
-- [ ] Validation floor commands pass from a clean checkout.
-- [ ] Draft plan and execution checklist are current at merge time.
+- [x] Validation floor commands pass from a clean checkout.
+- [x] Draft plan and execution checklist are current at merge time.

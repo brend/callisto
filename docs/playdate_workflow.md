@@ -56,6 +56,7 @@ module_roots = ["src", "../playdate_bindings/src"]
 
 Current shared modules:
 - `playdate`
+- `playdate.audio`
 - `playdate.graphics`
 - `playdate.input`
 - `playdate.graphics.sprite`
@@ -64,6 +65,7 @@ Current shared modules:
 Then import the modules you need:
 ```callisto
 import playdate
+import playdate.audio
 import playdate.graphics
 import playdate.input
 ```
@@ -110,6 +112,7 @@ Example manual preload shim:
 ```lua
 local player = import "player"    -- sets _ENV.player implicitly under Playdate's import
 local level  = import "level"
+playdate.audio = import "playdate/audio"
 playdate.input = import "playdate/input"
 ```
 

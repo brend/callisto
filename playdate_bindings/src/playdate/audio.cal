@@ -1,0 +1,25 @@
+module playdate.audio
+
+import playdate.sound
+
+extern module playdate.sound do
+  extern fn playNote(frequency: Float, length: Float, waveform: Int) -> Unit
+end
+
+fn wave_square() -> Int do
+  1
+end
+
+fn wave_triangle() -> Int do
+  2
+end
+
+pub fn bounce_blip() -> Unit do
+  sound.playNote(720.0, 0.04, wave_square())
+  ()
+end
+
+pub fn reset_chime() -> Unit do
+  sound.playNote(440.0, 0.08, wave_triangle())
+  ()
+end

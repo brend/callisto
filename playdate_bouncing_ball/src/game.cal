@@ -2,6 +2,7 @@ module game
 
 import playdate.graphics
 import playdate.input
+import playdate.audio
 
 type Ball {
   x: Int,
@@ -11,7 +12,14 @@ type Ball {
 }
 
 type ControlMode = | Crank | Buttons
-type StepResult = | Continue(Ball) | Reset
+type Sfx = | Bounce
+type Maybe[T] = | None | Some(T)
+type StepResult = | Continue(Ball, Maybe[Sfx]) | Reset
+
+type Integrated {
+  ball: Ball,
+  sfx: Maybe[Sfx]
+}
 
 impl Ball do
   fn moved(self: Ball, dx: Int, dy: Int) -> Ball do
@@ -21,6 +29,13 @@ end
 
 fn spawn_ball() -> Ball do
   Ball { x = 200, y = 120, vx = 3, vy = 0 }
+end
+
+fn unwrap_or[T](value: Maybe[T], fallback: T) -> T do
+  match value do
+    case Some(v) => v
+    case None => fallback
+  end
 end
 
 fn clamp(v: Int, lo: Int, hi: Int) -> Int do
@@ -90,7 +105,39 @@ fn control_delta(mode: ControlMode, crank_delta: Int) -> Int do
   end
 end
 
-fn integrate_ball(ball: Ball, vy_delta: Int) -> Ball do
+fn sfx_code(sfx: Sfx) -> Int do
+  match sfx do
+    case Bounce => 1
+  end
+end
+
+fn maybe_sfx_code(effect: Maybe[Sfx]) -> Maybe[Int] do
+  match effect do
+    case Some(value) => Some(sfx_code(value))
+    case None => None
+  end
+end
+
+fn detect_bounce_sfx(next_vx: Int, prior_vx: Int, next_vy: Int, target_vy: Int) -> Maybe[Sfx] do
+  if next_vx != prior_vx then
+    Some(Bounce)
+  elseif next_vy != target_vy then
+    Some(Bounce)
+  else
+    None
+  end
+end
+
+fn play_sfx(effect: Maybe[Sfx]) -> Unit do
+  let code = unwrap_or(maybe_sfx_code(effect), 0)
+  if code == 1 then
+    audio.bounce_blip()
+  else
+    ()
+  end
+end
+
+fn integrate_ball(ball: Ball, vy_delta: Int) -> Integrated do
   let max_vy = 8
   let target_vy = clamp(ball.vy + vy_delta, 0 - max_vy, max_vy)
   let moved = ball.moved(ball.vx, target_vy)
@@ -99,12 +146,16 @@ fn integrate_ball(ball: Ball, vy_delta: Int) -> Ball do
   let next_y = clamp_y(moved.y)
   let next_vx = bounce_x(moved.x, ball.vx)
   let next_vy = bounce_y(moved.y, target_vy)
+  let effect = detect_bounce_sfx(next_vx, ball.vx, next_vy, target_vy)
 
-  moved with {
-    x = next_x,
-    y = next_y,
-    vx = next_vx,
-    vy = next_vy
+  Integrated {
+    ball = moved with {
+      x = next_x,
+      y = next_y,
+      vx = next_vx,
+      vy = next_vy
+    },
+    sfx = effect
   }
 end
 
@@ -112,7 +163,8 @@ fn decide_step(ball: Ball, mode: ControlMode, crank_delta: Int) -> StepResult do
   if input.b_just_pressed() then
     Reset
   else
-    Continue(integrate_ball(ball, control_delta(mode, crank_delta)))
+    let integrated = integrate_ball(ball, control_delta(mode, crank_delta))
+    Continue(integrated.ball, integrated.sfx)
   end
 end
 
@@ -129,7 +181,11 @@ end
 pub fn step(ball: Ball, crank_delta: Int) -> Ball do
   let mode = choose_mode()
   match decide_step(ball, mode, crank_delta) do
-    case Continue(next) => next
-    case Reset => spawn_ball()
+    case Continue(next, effect) =>
+      play_sfx(effect)
+      next
+    case Reset =>
+      audio.reset_chime()
+      spawn_ball()
   end
 end
