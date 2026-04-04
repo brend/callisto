@@ -75,6 +75,7 @@ Acceptance criteria:
 - Regression pass
 - Docs/changelog finalization
 - Tag and announcement prep for `v0.3.0`
+- Checklist: [`docs/v0_3_m4_release_checklist.md`](docs/v0_3_m4_release_checklist.md)
 
 ## M1 Status (Implemented on Current Branch)
 
@@ -123,8 +124,23 @@ Acceptance criteria:
 - Updated docs (`README`, cheat sheet, workflow guide) to reflect the first-party Playdate flow.
 - Extended `playdate_auto_bootstrap` sample with input-driven multi-scene rendering (`Splash`, `Pilot`, `Telemetry`) and crank telemetry labels.
 
+## M4 Status (In Progress on Current Branch)
+
+`M4` progress on the current branch:
+- Added `docs/v0_3_m4_release_checklist.md`.
+- Ran regression/build validation:
+  - `cargo test`
+  - `make -C playdate_bouncing_ball build-lua`
+  - `make -C playdate_auto_bootstrap build-lua`
+- Built release binary with `cargo build --release`.
+- Smoke-tested first-party workflow on both debug/release binaries:
+  - `init --template playdate`
+  - `build-playdate` (using a fake `pdc` in temp dirs)
+  - plus release `check` and `emit-lua --playdate-bootstrap`.
+- Remaining `M4` work: finalize `0.3.0` changelog section, tag release commit, and prepare announcement notes.
+
 ## Immediate Next Tasks
 
-1. Start `M4` release-readiness pass for `v0.3.0` (regression sweep + docs/changelog freeze).
-2. Extend richer sample coverage with state persistence and explicit transitions beyond input-hold states.
-3. Continue sample-driven binding additions only as required by richer samples.
+1. Finalize `0.3.0` release notes in `CHANGELOG.md` and cut the release tag.
+2. Draft `v0.3.0` announcement notes.
+3. Extend richer sample coverage with state persistence and explicit transitions beyond input-hold states.

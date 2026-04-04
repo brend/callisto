@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
 - `callisto init --template playdate <dir>` to scaffold first-party Playdate project structure.
 - `callisto build-playdate <entry.cal>` command for one-step Lua emission + `pdc` packaging (+ optional `--run`).
 - `v0.3` `M3` Playdate product execution checklist.
+- `v0.3` `M4` release-readiness checklist.
 
 ### Changed
 - Playdate workflow docs and CLI cheat sheet now document bootstrap flow and shared binding module-root usage.
