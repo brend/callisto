@@ -90,11 +90,13 @@ Acceptance criteria:
 - Error-code tags
 - Golden diagnostics tests
 - Golden emitted-Lua tests
+- Prep doc: [`docs/v0_2_m3_diagnostics_plan.md`](docs/v0_2_m3_diagnostics_plan.md)
 
 4. `M4: Release Readiness`
 - Full regression pass
 - Release checklist completion
 - Changelog + tag preparation
+- Checklist: [`docs/v0_2_m4_release_checklist.md`](docs/v0_2_m4_release_checklist.md)
 
 ## M1 Status (Implemented)
 
@@ -108,6 +110,33 @@ Acceptance criteria:
   - `-o` overrides config `out_dir`.
 - Regression tests for config loading/validation and resolver root-selection behavior.
 
+## M2 Status (Implemented)
+
+`M2` is implemented on the current branch with:
+- CLI/config precedence rules enforced and tested.
+- `emit-lua/build` output path behavior aligned with config + `-o` overrides.
+- User-facing docs updated for config wiring and precedence.
+
+## M3 Status (Implemented)
+
+`M3` is implemented on the current branch with:
+- Stable diagnostic error codes across config/resolve/typecheck hot paths.
+- Golden diagnostics coverage under `tests/golden/diagnostics`.
+- Golden emitted-Lua coverage under `tests/golden/lua`.
+- Reduced cascading diagnostics for imported-item failures to improve signal quality.
+
+## M4 Status (In Progress)
+
+`M4` progress on the current branch:
+- Regression suite passes (`cargo test`).
+- Sample-project smoke runs pass for `check` and `emit-lua`.
+- Release build + binary smoke test pass (`cargo build --release`, `target/release/callisto`).
+- Changelog prepared for `0.2.0`.
+
+Remaining `M4` actions:
+- Create the `v0.2.0` tag from the final release commit.
+- Maintainer sign-off and release announcement notes.
+
 ## Proposed v0.2 Completion Gate
 
 Call `v0.2` complete when all of the following are true:
@@ -120,7 +149,6 @@ Call `v0.2` complete when all of the following are true:
 
 ## Immediate Next Tasks
 
-1. Start `M2` by finalizing CLI/config help text and error wording for user-facing UX.
-2. Add dedicated integration fixtures for output path precedence and config override edge-cases.
-3. Draft diagnostics error-code identifiers and golden-test harness design (`M3` prep).
-4. Add release checklist scaffolding for `v0.2` (`M4` prep).
+1. Create final release commit for `v0.2.0`.
+2. Tag the release commit as `v0.2.0`.
+3. Perform maintainer sign-off and publish release notes.

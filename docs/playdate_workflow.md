@@ -101,7 +101,7 @@ local level  = import "level"
 
 Playdate's `import` (not standard Lua `require`) executes the file in the global scope if it returns nothing, or assigns the return value. Since each Callisto module returns `M`, you need explicit assignment.
 
-**v0.2 fix:** When `callisto.toml` is wired in, codegen can emit the correct `import` calls (or a boot loader) automatically.
+**v0.2 status:** `callisto.toml` + `--module-root` are now wired for deterministic module resolution, but codegen still does not auto-emit Playdate `import` bootstrap calls. Keep using the shim for now.
 
 ---
 
@@ -130,9 +130,9 @@ The Playdate Simulator has a "Reload Game" hotkey (`⌘R`) — combine with fswa
 
 2. **A small real game** (e.g., Pong or a bouncing ball) — Acts as a living integration test and drives what bindings are missing.
 
-3. **v0.2 M1 CLI wiring** — Wire `--module-root` and `callisto.toml` into the pipeline so you can eliminate the manual shim and have proper multi-module output.
+3. **Codegen: emit Playdate `import` calls** — Extend codegen to emit `import "module_name"` in `main.lua` automatically, removing the hand-written shim.
 
-4. **Codegen: emit Playdate `import` calls** — After M1, extend codegen to emit `import "module_name"` in `main.lua` automatically, removing the hand-written shim entirely.
+4. **Playdate-oriented build glue** — Add a first-party command or template that runs `callisto build` + `pdc` with stable output paths.
 
 ---
 

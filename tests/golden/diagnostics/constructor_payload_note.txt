@@ -1,0 +1,2 @@
+golden_constructor_payload.luna:5:11: error[CAL-TYP-021]: constructor does not accept a payload
+  note at golden_constructor_payload.luna:5:11: remove the payload and use the nullary constructor form

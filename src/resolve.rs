@@ -12,6 +12,19 @@ use crate::{
     },
 };
 
+const DIAG_RES_DUPLICATE_TYPE_DECL: &str = "CAL-RES-001";
+const DIAG_RES_DUPLICATE_FUNC_DECL: &str = "CAL-RES-002";
+const DIAG_RES_DUPLICATE_EXTERN_FUNC_DECL: &str = "CAL-RES-003";
+const DIAG_RES_DUPLICATE_IMPORT_ALIAS: &str = "CAL-RES-020";
+const DIAG_RES_DUPLICATE_IMPORTED_ITEM: &str = "CAL-RES-021";
+const DIAG_RES_UNKNOWN_IMPL_TARGET: &str = "CAL-RES-030";
+const DIAG_RES_DUPLICATE_METHOD: &str = "CAL-RES-031";
+const DIAG_RES_DUPLICATE_VARIANT: &str = "CAL-RES-040";
+const DIAG_RES_BUILTIN_TYPE_ARGS: &str = "CAL-RES-050";
+const DIAG_RES_UNKNOWN_TYPE: &str = "CAL-RES-051";
+const DIAG_RES_NULLABLE_OUTSIDE_EXTERN: &str = "CAL-RES-060";
+const DIAG_RES_NIL_OUTSIDE_EXTERN: &str = "CAL-RES-061";
+
 #[derive(Debug, Clone)]
 pub struct ResolvedModule {
     pub type_infos: Vec<TypeInfo>,
@@ -89,8 +102,9 @@ impl Ctx {
                         .insert(type_decl.name.clone(), type_id)
                         .is_some()
                     {
-                        self.diagnostics.error(
+                        self.diagnostics.error_code(
                             type_decl.span,
+                            DIAG_RES_DUPLICATE_TYPE_DECL,
                             format!("duplicate type declaration '{}'", type_decl.name),
                         );
                     }
@@ -109,8 +123,9 @@ impl Ctx {
                         .insert(extern_type.name.clone(), type_id)
                         .is_some()
                     {
-                        self.diagnostics.error(
+                        self.diagnostics.error_code(
                             extern_type.span,
+                            DIAG_RES_DUPLICATE_TYPE_DECL,
                             format!("duplicate type declaration '{}'", extern_type.name),
                         );
                     }
@@ -128,8 +143,9 @@ impl Ctx {
                         .insert(func_decl.name.clone(), func_id)
                         .is_some()
                     {
-                        self.diagnostics.error(
+                        self.diagnostics.error_code(
                             func_decl.span,
+                            DIAG_RES_DUPLICATE_FUNC_DECL,
                             format!("duplicate function declaration '{}'", func_decl.name),
                         );
                     }
@@ -150,8 +166,9 @@ impl Ctx {
                         .insert(extern_func.name.clone(), func_id)
                         .is_some()
                     {
-                        self.diagnostics.error(
+                        self.diagnostics.error_code(
                             extern_func.span,
+                            DIAG_RES_DUPLICATE_FUNC_DECL,
                             format!("duplicate function declaration '{}'", extern_func.name),
                         );
                     }
@@ -171,8 +188,9 @@ impl Ctx {
                         let full_name = format!("{}.{}", extern_module.path.join("."), func.name);
                         let func_id = self.alloc_func_id();
                         if self.func_names.insert(full_name.clone(), func_id).is_some() {
-                            self.diagnostics.error(
+                            self.diagnostics.error_code(
                                 func.span,
+                                DIAG_RES_DUPLICATE_EXTERN_FUNC_DECL,
                                 format!("duplicate extern function declaration '{}'", full_name),
                             );
                         }
@@ -208,8 +226,11 @@ impl Ctx {
                 .insert(alias.clone(), import.path.clone())
             {
                 if existing != import.path {
-                    self.diagnostics
-                        .error(import.span, format!("duplicate import alias '{}'", alias));
+                    self.diagnostics.error_code(
+                        import.span,
+                        DIAG_RES_DUPLICATE_IMPORT_ALIAS,
+                        format!("duplicate import alias '{}'", alias),
+                    );
                 }
             }
 
@@ -220,8 +241,11 @@ impl Ctx {
                         self.import_items.insert(item.clone(), qualified.clone())
                     {
                         if existing != qualified {
-                            self.diagnostics
-                                .error(import.span, format!("duplicate imported item '{}'", item));
+                            self.diagnostics.error_code(
+                                import.span,
+                                DIAG_RES_DUPLICATE_IMPORTED_ITEM,
+                                format!("duplicate imported item '{}'", item),
+                            );
                         }
                     }
                 }
@@ -233,8 +257,9 @@ impl Ctx {
         let pending_impls = self.pending_impls.clone();
         for impl_decl in pending_impls {
             let Some(type_id) = self.type_names.get(&impl_decl.target).copied() else {
-                self.diagnostics.error(
+                self.diagnostics.error_code(
                     impl_decl.span,
+                    DIAG_RES_UNKNOWN_IMPL_TARGET,
                     format!("unknown impl target type '{}'", impl_decl.target),
                 );
                 continue;
@@ -248,16 +273,20 @@ impl Ctx {
                     .insert(lowered_name.clone(), func_id)
                     .is_some()
                 {
-                    self.diagnostics
-                        .error(method.span, format!("duplicate method '{}'", lowered_name));
+                    self.diagnostics.error_code(
+                        method.span,
+                        DIAG_RES_DUPLICATE_METHOD,
+                        format!("duplicate method '{}'", lowered_name),
+                    );
                 }
                 if self
                     .method_names
                     .insert((type_id, method.name.clone()), func_id)
                     .is_some()
                 {
-                    self.diagnostics.error(
+                    self.diagnostics.error_code(
                         method.span,
+                        DIAG_RES_DUPLICATE_METHOD,
                         format!(
                             "duplicate method '{}' for type '{}'",
                             method.name, impl_decl.target
@@ -310,8 +339,9 @@ impl Ctx {
                             .insert(variant.name.clone(), variant_id)
                             .is_some()
                         {
-                            self.diagnostics.error(
+                            self.diagnostics.error_code(
                                 variant.span,
+                                DIAG_RES_DUPLICATE_VARIANT,
                                 format!("duplicate variant '{}'", variant.name),
                             );
                         }
@@ -419,16 +449,20 @@ impl Ctx {
                 }
                 if let Some(ty) = builtin_type(name) {
                     if !args.is_empty() {
-                        self.diagnostics.error(
+                        self.diagnostics.error_code(
                             expr.span,
+                            DIAG_RES_BUILTIN_TYPE_ARGS,
                             format!("builtin type '{}' does not take type arguments", name),
                         );
                     }
                     return ty;
                 }
                 let Some(type_id) = self.type_names.get(name).copied() else {
-                    self.diagnostics
-                        .error(expr.span, format!("unknown type '{}'", name));
+                    self.diagnostics.error_code(
+                        expr.span,
+                        DIAG_RES_UNKNOWN_TYPE,
+                        format!("unknown type '{}'", name),
+                    );
                     return Type::Error;
                 };
                 let args = args
@@ -447,8 +481,9 @@ impl Ctx {
             }
             TypeExprKind::Nullable { inner } => {
                 if !extern_ctx {
-                    self.diagnostics.error(
+                    self.diagnostics.error_code(
                         expr.span,
+                        DIAG_RES_NULLABLE_OUTSIDE_EXTERN,
                         "nullable types are only allowed in extern contexts",
                     );
                 }
@@ -457,8 +492,11 @@ impl Ctx {
             }
             TypeExprKind::Nil => {
                 if !extern_ctx {
-                    self.diagnostics
-                        .error(expr.span, "nil type is only allowed in extern contexts");
+                    self.diagnostics.error_code(
+                        expr.span,
+                        DIAG_RES_NIL_OUTSIDE_EXTERN,
+                        "nil type is only allowed in extern contexts",
+                    );
                 }
                 Type::ForeignNil
             }

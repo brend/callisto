@@ -11,6 +11,7 @@ pub enum DiagnosticLevel {
 #[derive(Debug, Clone)]
 pub struct Diagnostic {
     pub level: DiagnosticLevel,
+    pub code: Option<String>,
     pub message: String,
     pub primary_span: Span,
     pub notes: Vec<(Span, String)>,
@@ -33,6 +34,17 @@ impl Diagnostics {
     pub fn error(&mut self, span: Span, message: impl Into<String>) {
         self.push(Diagnostic {
             level: DiagnosticLevel::Error,
+            code: None,
+            message: message.into(),
+            primary_span: span,
+            notes: Vec::new(),
+        });
+    }
+
+    pub fn error_code(&mut self, span: Span, code: impl Into<String>, message: impl Into<String>) {
+        self.push(Diagnostic {
+            level: DiagnosticLevel::Error,
+            code: Some(code.into()),
             message: message.into(),
             primary_span: span,
             notes: Vec::new(),
@@ -48,6 +60,24 @@ impl Diagnostics {
     ) {
         self.push(Diagnostic {
             level: DiagnosticLevel::Error,
+            code: None,
+            message: message.into(),
+            primary_span: span,
+            notes: vec![(note_span, note.into())],
+        });
+    }
+
+    pub fn error_with_note_code(
+        &mut self,
+        span: Span,
+        code: impl Into<String>,
+        message: impl Into<String>,
+        note_span: Span,
+        note: impl Into<String>,
+    ) {
+        self.push(Diagnostic {
+            level: DiagnosticLevel::Error,
+            code: Some(code.into()),
             message: message.into(),
             primary_span: span,
             notes: vec![(note_span, note.into())],
@@ -57,6 +87,7 @@ impl Diagnostics {
     pub fn warning(&mut self, span: Span, message: impl Into<String>) {
         self.push(Diagnostic {
             level: DiagnosticLevel::Warning,
+            code: None,
             message: message.into(),
             primary_span: span,
             notes: Vec::new(),
@@ -87,13 +118,17 @@ impl Diagnostics {
                 DiagnosticLevel::Error => "error",
                 DiagnosticLevel::Warning => "warning",
             };
+            let level_with_code = match &diag.code {
+                Some(code) => format!("{level}[{code}]"),
+                None => level.to_string(),
+            };
             let _ = writeln!(
                 out,
                 "{}:{}:{}: {}: {}",
                 sources.file_name(diag.primary_span.file_id),
                 line,
                 col,
-                level,
+                level_with_code,
                 diag.message
             );
             for (note_span, note) in &diag.notes {
@@ -138,6 +173,7 @@ mod tests {
         let mut diagnostics = Diagnostics::new();
         diagnostics.push(Diagnostic {
             level: DiagnosticLevel::Error,
+            code: None,
             message: "bad thing".to_string(),
             primary_span: Span::new(file_id, 3, 4),
             notes: vec![(Span::new(file_id, 0, 1), "more detail".to_string())],
@@ -157,5 +193,22 @@ mod tests {
         b.warning(span, "second");
         a.extend(b);
         assert_eq!(a.items.len(), 2);
+    }
+
+    #[test]
+    fn render_includes_error_code_when_present() {
+        let mut db = SourceDb::new();
+        let file_id = db.add_file(PathBuf::from("sample.luna"), "x\n".to_string());
+        let mut diagnostics = Diagnostics::new();
+        diagnostics.push(Diagnostic {
+            level: DiagnosticLevel::Error,
+            code: Some("CAL-TST-001".to_string()),
+            message: "coded error".to_string(),
+            primary_span: Span::new(file_id, 0, 1),
+            notes: Vec::new(),
+        });
+
+        let rendered = diagnostics.render(&db);
+        assert!(rendered.contains("error[CAL-TST-001]: coded error"));
     }
 }

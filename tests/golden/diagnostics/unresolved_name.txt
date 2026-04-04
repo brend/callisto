@@ -1,0 +1,1 @@
+golden_unresolved_name.luna:3:3: error[CAL-TYP-001]: unresolved name 'missing_name'

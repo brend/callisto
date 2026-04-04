@@ -40,7 +40,7 @@ Default output precedence:
 - If `-o` is not provided and config has `out_dir`, config `out_dir` is used.
 - Otherwise output defaults to `out/`.
 
-## Configuration (v0.2 M1)
+## Configuration (v0.2)
 
 `callisto.toml` is supported for project-level configuration.
 
@@ -60,6 +60,18 @@ package = "demo.app"
 Resolution precedence:
 - Module roots: CLI `--module-root` entries (in order) override config `module_roots`; if neither is provided, the entry file directory root is used.
 - Output directory: `-o` overrides config `out_dir`; config `out_dir` overrides default `out`.
+
+## Diagnostics (v0.2)
+
+Compiler diagnostics include stable error codes for key config, resolve, and typecheck paths.
+
+Example format:
+
+```
+path/to/file.cal:line:col: error[CAL-TYP-010]: cannot call imported module 'foo.bar' as a function
+```
+
+Use these codes to search issues/docs and to keep troubleshooting stable when wording evolves.
 
 ## v0.1 Scope (Baseline)
 
@@ -245,4 +257,6 @@ source → lexer → parser → AST → name resolution → type checking → TI
 
 See [`docs/luna_compiler_architecture_v0_1.md`](docs/luna_compiler_architecture_v0_1.md) for the full design.
 
-Planning for the next release is tracked in [`docs/v0_2_draft_plan.md`](docs/v0_2_draft_plan.md).
+v0.2 planning and release execution are tracked in:
+- [`docs/v0_2_draft_plan.md`](docs/v0_2_draft_plan.md)
+- [`docs/v0_2_m4_release_checklist.md`](docs/v0_2_m4_release_checklist.md)

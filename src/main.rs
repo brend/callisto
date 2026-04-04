@@ -27,6 +27,11 @@ use diagnostics::Diagnostics;
 use source::SourceDb;
 use span::FileId;
 
+const DIAG_RES_IMPORT_MODULE_NOT_FOUND: &str = "CAL-RES-010";
+const DIAG_RES_MODULE_READ_FAILED: &str = "CAL-RES-013";
+const DIAG_RES_MODULE_DECL_MISMATCH: &str = "CAL-RES-014";
+const DIAG_RES_DUPLICATE_MODULE_DEF: &str = "CAL-RES-015";
+
 fn main() {
     match run() {
         Ok(()) => {}
@@ -386,8 +391,9 @@ fn load_module_graph(
                     eprintln!("failed to read '{}': {}", path.display(), err);
                     return Err(1);
                 }
-                diagnostics.error(
+                diagnostics.error_code(
                     span::Span::dummy(),
+                    DIAG_RES_MODULE_READ_FAILED,
                     format!("failed to read module file '{}': {}", path.display(), err),
                 );
                 continue;
@@ -402,8 +408,9 @@ fn load_module_graph(
         let module_path = match (&ast.module_decl, &expected_module_path) {
             (Some(decl), Some(expected)) => {
                 if decl.path != *expected {
-                    diagnostics.error(
+                    diagnostics.error_code(
                         decl.span,
+                        DIAG_RES_MODULE_DECL_MISMATCH,
                         format!(
                             "module declaration '{}' does not match imported path '{}'",
                             decl.path.join("."),
@@ -426,8 +433,9 @@ fn load_module_graph(
             let key = module_path.join(".");
             if let Some(existing) = module_to_path.insert(key.clone(), path.clone()) {
                 if existing != path {
-                    diagnostics.error(
+                    diagnostics.error_code(
                         span::Span::new(file_id, 0, 0),
+                        DIAG_RES_DUPLICATE_MODULE_DEF,
                         format!(
                             "module '{}' is defined by multiple files: '{}' and '{}'",
                             key,
@@ -470,8 +478,9 @@ fn load_module_graph(
                             .join("\n  - ");
                         format!("attempted paths:\n  - {}", attempted)
                     };
-                    diagnostics.error_with_note(
+                    diagnostics.error_with_note_code(
                         import.span,
+                        DIAG_RES_IMPORT_MODULE_NOT_FOUND,
                         format!(
                             "could not find module file for import '{}'",
                             import.path.join(".")
@@ -763,12 +772,114 @@ mod tests {
         time::{SystemTime, UNIX_EPOCH},
     };
 
-    use crate::{codegen_lua, config::ConfigSource, lexer, parser, resolve, typecheck};
+    use crate::{
+        codegen_lua, config::ConfigSource, diagnostics::Diagnostics, lexer, parser, resolve,
+        source::SourceDb, typecheck,
+    };
 
     use super::{
         ProjectOptions, check_command, compile_pipeline, compile_pipeline_with_options,
         emit_lua_command, resolve_output_path, resolve_project_options,
     };
+
+    fn render_diagnostics_for_source(file_name: &str, source: &str) -> String {
+        let mut db = SourceDb::new();
+        let file_id = db.add_file(PathBuf::from(file_name), source.to_string());
+
+        let (tokens, lex_diags) = lexer::lex(file_id, source);
+        let mut diagnostics = Diagnostics::new();
+        diagnostics.extend(lex_diags);
+
+        let (ast, parse_diags) = parser::parse(tokens);
+        diagnostics.extend(parse_diags);
+
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        diagnostics.extend(resolve_diags);
+
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        diagnostics.extend(type_diags);
+
+        diagnostics.render(&db)
+    }
+
+    fn assert_diagnostics_golden(name: &str, file_name: &str, source: &str) {
+        let actual = render_diagnostics_for_source(file_name, source);
+        let golden_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("golden")
+            .join("diagnostics")
+            .join(format!("{name}.txt"));
+
+        if std::env::var("UPDATE_GOLDENS").ok().as_deref() == Some("1") {
+            if let Some(parent) = golden_path.parent() {
+                std::fs::create_dir_all(parent).expect("failed to create golden dir");
+            }
+            std::fs::write(&golden_path, &actual).expect("failed to write golden file");
+        }
+
+        let expected = std::fs::read_to_string(&golden_path).unwrap_or_else(|_| {
+            panic!(
+                "missing diagnostics golden '{}'; run with UPDATE_GOLDENS=1",
+                golden_path.display()
+            )
+        });
+
+        assert_eq!(
+            actual,
+            expected,
+            "diagnostics golden '{}' mismatch",
+            golden_path.display()
+        );
+    }
+
+    fn emit_lua_for_source(file_name: &str, source: &str) -> String {
+        let mut db = SourceDb::new();
+        let file_id = db.add_file(PathBuf::from(file_name), source.to_string());
+
+        let (tokens, lex_diags) = lexer::lex(file_id, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+
+        let (tir, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+
+        codegen_lua::emit_lua_module(&tir, &resolved)
+    }
+
+    fn assert_lua_golden(name: &str, file_name: &str, source: &str) {
+        let actual = emit_lua_for_source(file_name, source);
+        let golden_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("golden")
+            .join("lua")
+            .join(format!("{name}.lua"));
+
+        if std::env::var("UPDATE_GOLDENS").ok().as_deref() == Some("1") {
+            if let Some(parent) = golden_path.parent() {
+                std::fs::create_dir_all(parent).expect("failed to create golden dir");
+            }
+            std::fs::write(&golden_path, &actual).expect("failed to write golden file");
+        }
+
+        let expected = std::fs::read_to_string(&golden_path).unwrap_or_else(|_| {
+            panic!(
+                "missing lua golden '{}'; run with UPDATE_GOLDENS=1",
+                golden_path.display()
+            )
+        });
+
+        assert_eq!(
+            actual,
+            expected,
+            "lua golden '{}' mismatch",
+            golden_path.display()
+        );
+    }
 
     #[test]
     fn full_pipeline_compiles_and_emits_lua_for_feature_rich_module() {
@@ -2114,5 +2225,130 @@ end
             d.message
                 .contains("non-exhaustive match, missing variants: None")
         }));
+    }
+
+    #[test]
+    fn diagnostics_golden_constructor_payload_note() {
+        let source = r#"
+type MaybeInt = | None | Some(Int)
+
+fn main() -> Int do
+  let x = None(1)
+  0
+end
+"#;
+        assert_diagnostics_golden(
+            "constructor_payload_note",
+            "golden_constructor_payload.luna",
+            source,
+        );
+    }
+
+    #[test]
+    fn diagnostics_golden_imported_module_member_missing() {
+        let source = r#"
+import foo.bar
+
+extern module foo.bar do
+  extern fn baz() -> Int
+end
+
+fn main() -> Int do
+  bar.qux()
+end
+"#;
+        assert_diagnostics_golden(
+            "imported_module_member_missing",
+            "golden_import_member.luna",
+            source,
+        );
+    }
+
+    #[test]
+    fn diagnostics_golden_unresolved_name() {
+        let source = r#"
+fn main() -> Int do
+  missing_name
+end
+"#;
+        assert_diagnostics_golden("unresolved_name", "golden_unresolved_name.luna", source);
+    }
+
+    #[test]
+    fn diagnostics_golden_non_exhaustive_match() {
+        let source = r#"
+type MaybeInt = | None | Some(Int)
+
+fn unwrap(m: MaybeInt) -> Int do
+  match m do
+    case Some(v) => v
+  end
+end
+"#;
+        assert_diagnostics_golden(
+            "non_exhaustive_match",
+            "golden_non_exhaustive_match.luna",
+            source,
+        );
+    }
+
+    #[test]
+    fn diagnostics_golden_duplicate_import_alias() {
+        let source = r#"
+import foo.bar
+import baz.bar
+
+fn main() -> Int do
+  0
+end
+"#;
+        assert_diagnostics_golden(
+            "duplicate_import_alias",
+            "golden_duplicate_import_alias.luna",
+            source,
+        );
+    }
+
+    #[test]
+    fn diagnostics_golden_imported_item_missing_declaration() {
+        let source = r#"
+import foo.bar.{qux}
+
+fn main() -> Int do
+  qux(1)
+end
+"#;
+        assert_diagnostics_golden(
+            "imported_item_missing_declaration",
+            "golden_import_item_missing.luna",
+            source,
+        );
+    }
+
+    #[test]
+    fn lua_golden_record_update() {
+        let source = r#"
+type Point { x: Int, y: Int }
+
+fn bump(p: Point) -> Point do
+  p with { x = p.x + 1 }
+end
+"#;
+        assert_lua_golden("record_update", "golden_record_update.luna", source);
+    }
+
+    #[test]
+    fn lua_golden_sum_match() {
+        let source = r#"
+type MaybeInt = | None | Some(Int)
+
+fn pick(m: MaybeInt) -> Int do
+  match m do
+    case Some(v) => v
+    case None => 0
+  end
+end
+"#;
+        assert_lua_golden("sum_match", "golden_sum_match.luna", source);
     }
 }

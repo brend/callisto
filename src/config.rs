@@ -46,8 +46,20 @@ pub enum ConfigError {
     },
 }
 
+impl ConfigError {
+    fn code(&self) -> &'static str {
+        match self {
+            ConfigError::MissingExplicitConfig { .. } => "CAL-CFG-001",
+            ConfigError::ReadFailed { .. } => "CAL-CFG-002",
+            ConfigError::ParseFailed { .. } => "CAL-CFG-003",
+            ConfigError::InvalidField { .. } => "CAL-CFG-004",
+        }
+    }
+}
+
 impl fmt::Display for ConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[{}] ", self.code())?;
         match self {
             ConfigError::MissingExplicitConfig { path } => {
                 write!(f, "explicit config '{}' was not found", path.display())
@@ -339,5 +351,14 @@ mod tests {
             }
             other => panic!("unexpected error: {other}"),
         }
+    }
+
+    #[test]
+    fn config_errors_include_error_codes_in_display() {
+        let err = ConfigError::MissingExplicitConfig {
+            path: PathBuf::from("/tmp/missing.toml"),
+        };
+        let rendered = err.to_string();
+        assert!(rendered.starts_with("[CAL-CFG-001] "));
     }
 }

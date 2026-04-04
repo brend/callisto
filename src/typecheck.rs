@@ -15,6 +15,16 @@ use crate::{
     },
 };
 
+const DIAG_RES_UNKNOWN_IMPORTED_MEMBER: &str = "CAL-RES-011";
+const DIAG_RES_UNKNOWN_IMPORTED_ITEM: &str = "CAL-RES-012";
+const DIAG_TYP_UNRESOLVED_NAME: &str = "CAL-TYP-001";
+const DIAG_TYP_CALL_TARGET: &str = "CAL-TYP-010";
+const DIAG_TYP_CALL_ARG_COUNT: &str = "CAL-TYP-011";
+const DIAG_TYP_CALL_ARG_TYPE: &str = "CAL-TYP-012";
+const DIAG_TYP_CONSTRUCTOR_PAYLOAD: &str = "CAL-TYP-021";
+const DIAG_TYP_CONSTRUCTOR_INFER: &str = "CAL-TYP-022";
+const DIAG_TYP_NON_EXHAUSTIVE_MATCH: &str = "CAL-TYP-030";
+
 pub fn typecheck_and_lower(resolved: &ResolvedModule) -> (TirModule, Diagnostics) {
     let mut checker = Checker::new(resolved);
     let tir = checker.run();
@@ -377,8 +387,9 @@ impl<'a> Checker<'a> {
                     TirExprKind::Func(func_id),
                 );
             }
-            self.diagnostics.error(
+            self.diagnostics.error_code(
                 span,
+                DIAG_RES_UNKNOWN_IMPORTED_ITEM,
                 format!(
                     "imported item '{}' resolves to '{}' but no matching function/extern declaration exists",
                     name, qualified
@@ -411,8 +422,9 @@ impl<'a> Checker<'a> {
                             .get(ty_id.0 as usize)
                             .is_some_and(|info| !info.params.is_empty())
                     {
-                        self.diagnostics.error(
+                        self.diagnostics.error_code(
                             span,
+                            DIAG_TYP_CONSTRUCTOR_INFER,
                             format!(
                                 "cannot infer generic type arguments for constructor '{}' without context",
                                 name
@@ -435,8 +447,11 @@ impl<'a> Checker<'a> {
             return self.mk_expr(Type::Error, TirExprKind::ExternPath(path.clone()));
         }
 
-        self.diagnostics
-            .error(span, format!("unresolved name '{}'", name));
+        self.diagnostics.error_code(
+            span,
+            DIAG_TYP_UNRESOLVED_NAME,
+            format!("unresolved name '{}'", name),
+        );
         self.mk_expr(Type::Error, TirExprKind::ExternPath(vec![name.to_string()]))
     }
 
@@ -451,8 +466,9 @@ impl<'a> Checker<'a> {
             );
         }
         if self.path_references_import_alias(path) {
-            self.diagnostics.error(
+            self.diagnostics.error_code(
                 span,
+                DIAG_RES_UNKNOWN_IMPORTED_ITEM,
                 format!(
                     "imported path '{}' has no matching function/extern declaration",
                     name
@@ -501,10 +517,13 @@ impl<'a> Checker<'a> {
             }
             Type::Error => {
                 if let TirExprKind::ExternPath(segments) = &callee_tir.kind {
-                    if self.is_imported_module_path(segments) {
+                    if self.is_imported_module_path(segments)
+                        && !self.should_suppress_call_target_diagnostic(callee)
+                    {
                         let module_path = segments.join(".");
-                        self.diagnostics.error_with_note(
+                        self.diagnostics.error_with_note_code(
                             span,
+                            DIAG_TYP_CALL_TARGET,
                             format!("cannot call imported module '{}' as a function", module_path),
                             callee.span,
                             format!(
@@ -524,10 +543,13 @@ impl<'a> Checker<'a> {
             }
             _ => {
                 if let TirExprKind::ExternPath(segments) = &callee_tir.kind {
-                    if self.is_imported_module_path(segments) {
+                    if self.is_imported_module_path(segments)
+                        && !self.should_suppress_call_target_diagnostic(callee)
+                    {
                         let module_path = segments.join(".");
-                        self.diagnostics.error_with_note(
+                        self.diagnostics.error_with_note_code(
                             span,
+                            DIAG_TYP_CALL_TARGET,
                             format!("cannot call imported module '{}' as a function", module_path),
                             callee.span,
                             format!(
@@ -535,9 +557,10 @@ impl<'a> Checker<'a> {
                                 module_path, module_path
                             ),
                         );
-                    } else {
-                        self.diagnostics.error_with_note(
+                    } else if !self.should_suppress_call_target_diagnostic(callee) {
+                        self.diagnostics.error_with_note_code(
                             span,
+                            DIAG_TYP_CALL_TARGET,
                             "attempted to call an unresolved path as a function",
                             callee.span,
                             format!(
@@ -547,8 +570,9 @@ impl<'a> Checker<'a> {
                         );
                     }
                 } else {
-                    self.diagnostics.error(
+                    self.diagnostics.error_code(
                         span,
+                        DIAG_TYP_CALL_TARGET,
                         format!(
                             "attempted to call a non-function value (type: {:?})",
                             callee_tir.ty
@@ -585,8 +609,9 @@ impl<'a> Checker<'a> {
                 );
             }
             if self.is_imported_module_path(segments) {
-                self.diagnostics.error(
+                self.diagnostics.error_code(
                     span,
+                    DIAG_RES_UNKNOWN_IMPORTED_MEMBER,
                     format!(
                         "unknown imported module member '{}'; add a matching extern declaration",
                         joined
@@ -655,8 +680,9 @@ impl<'a> Checker<'a> {
                 );
             }
             if self.is_imported_module_path(segments) {
-                self.diagnostics.error(
+                self.diagnostics.error_code(
                     span,
+                    DIAG_RES_UNKNOWN_IMPORTED_MEMBER,
                     format!(
                         "unknown imported module function '{}'; add a matching extern declaration",
                         joined
@@ -941,8 +967,9 @@ impl<'a> Checker<'a> {
                     .map(|v| v.name.clone())
                     .collect();
                 if !missing.is_empty() {
-                    self.diagnostics.error(
+                    self.diagnostics.error_code(
                         scrutinee.span,
+                        DIAG_TYP_NON_EXHAUSTIVE_MATCH,
                         format!(
                             "non-exhaustive match, missing variants: {}",
                             missing.join(", ")
@@ -1336,8 +1363,9 @@ impl<'a> Checker<'a> {
 
     fn check_call_args(&mut self, span: crate::span::Span, params: &[Type], args: &[TirExpr]) {
         if params.len() != args.len() {
-            self.diagnostics.error(
+            self.diagnostics.error_code(
                 span,
+                DIAG_TYP_CALL_ARG_COUNT,
                 format!(
                     "call argument count mismatch: expected {}, got {}",
                     params.len(),
@@ -1348,8 +1376,9 @@ impl<'a> Checker<'a> {
         }
         for (idx, (expected, got)) in params.iter().zip(args).enumerate() {
             if !self.is_assignable(expected, &got.ty) {
-                self.diagnostics.error(
+                self.diagnostics.error_code(
                     span,
+                    DIAG_TYP_CALL_ARG_TYPE,
                     format!(
                         "argument {} expects {:?} but got {:?}",
                         idx + 1,
@@ -1384,6 +1413,14 @@ impl<'a> Checker<'a> {
             .import_modules
             .values()
             .any(|path| segments.starts_with(path))
+    }
+
+    fn should_suppress_call_target_diagnostic(&self, callee: &Expr) -> bool {
+        match &callee.kind {
+            ExprKind::Var(name) => self.resolved.import_items.contains_key(name),
+            ExprKind::Path(path) => self.path_references_import_alias(path),
+            _ => false,
+        }
     }
 
     fn instantiate_func_signature(
@@ -1477,8 +1514,9 @@ impl<'a> Checker<'a> {
         match (expected, got) {
             (VariantPayload::None, TirVariantPayload::None) => {}
             (VariantPayload::None, _) => {
-                self.diagnostics.error_with_note(
+                self.diagnostics.error_with_note_code(
                     span,
+                    DIAG_TYP_CONSTRUCTOR_PAYLOAD,
                     "constructor does not accept a payload",
                     span,
                     "remove the payload and use the nullary constructor form",
@@ -1486,8 +1524,9 @@ impl<'a> Checker<'a> {
             }
             (VariantPayload::Positional(expected_tys), TirVariantPayload::Positional(values)) => {
                 if expected_tys.len() != values.len() {
-                    self.diagnostics.error_with_note(
+                    self.diagnostics.error_with_note_code(
                         span,
+                        DIAG_TYP_CONSTRUCTOR_PAYLOAD,
                         format!(
                             "constructor argument count mismatch: expected {}, got {}",
                             expected_tys.len(),
@@ -1535,16 +1574,18 @@ impl<'a> Checker<'a> {
                 }
             }
             (VariantPayload::Positional(_), _) => {
-                self.diagnostics.error_with_note(
+                self.diagnostics.error_with_note_code(
                     span,
+                    DIAG_TYP_CONSTRUCTOR_PAYLOAD,
                     "constructor requires positional payload",
                     span,
                     "use `Ctor(a, b, ...)` positional syntax for this constructor",
                 );
             }
             (VariantPayload::Record(_), _) => {
-                self.diagnostics.error_with_note(
+                self.diagnostics.error_with_note_code(
                     span,
+                    DIAG_TYP_CONSTRUCTOR_PAYLOAD,
                     "constructor requires record payload",
                     span,
                     "use `Ctor { field = value, ... }` payload syntax for this constructor",
