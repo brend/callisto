@@ -240,6 +240,10 @@ import other.module
 import other.module { foo, bar }
 ```
 
+## Cheat Sheet
+
+For a compact CLI + syntax reference, see [`docs/callisto_cheat_sheet.md`](docs/callisto_cheat_sheet.md).
+
 ## Development
 
 ```sh
