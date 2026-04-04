@@ -1,0 +1,3 @@
+out_dir = "Source"
+module_roots = ["src"]
+package = "playdate.bouncing_ball"

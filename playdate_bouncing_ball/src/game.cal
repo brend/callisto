@@ -1,0 +1,23 @@
+module game
+
+import playdate.graphics
+
+extern module playdate.graphics do
+  extern fn clear() -> Unit
+  extern fn drawText(text: String, x: Int, y: Int) -> Unit
+end
+
+pub fn render(ball_x: Int) -> Unit do
+  graphics.clear()
+  graphics.drawText("O", ball_x, 120)
+  ()
+end
+
+pub fn next_x(ball_x: Int) -> Int do
+  let moved = ball_x + 3
+  if moved > 380 then
+    0
+  else
+    moved
+  end
+end
