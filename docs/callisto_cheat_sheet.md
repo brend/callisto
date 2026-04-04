@@ -12,16 +12,17 @@ callisto parse path/to/main.cal
 callisto check path/to/main.cal [--config path/to/callisto.toml] [--module-root path]...
 
 # Emit Lua
-callisto emit-lua path/to/main.cal [-o out.lua|out_dir] [--config path/to/callisto.toml] [--module-root path]...
+callisto emit-lua path/to/main.cal [-o out.lua|out_dir] [--config path/to/callisto.toml] [--module-root path]... [--playdate-bootstrap]
 
 # Alias of emit-lua
-callisto build path/to/main.cal [-o out.lua|out_dir] [--config path/to/callisto.toml] [--module-root path]...
+callisto build path/to/main.cal [-o out.lua|out_dir] [--config path/to/callisto.toml] [--module-root path]... [--playdate-bootstrap]
 ```
 
 Precedence:
 - CLI flags override config values.
 - `-o` overrides `out_dir`.
 - `--module-root` entries override `module_roots`.
+- `--playdate-bootstrap` writes a Playdate `main.lua` shim in output directories.
 
 ## `callisto.toml`
 

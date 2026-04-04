@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- `--playdate-bootstrap` flag on `emit-lua`/`build` to generate a Playdate `main.lua` shim for directory outputs.
+- Validation for Playdate bootstrap generation (requires entry module `pub fn update() -> Unit` and avoids `main.lua` overwrite collisions).
+- Regression tests for Playdate bootstrap emission and CLI parsing.
+- Shared Playdate bindings module scaffold in `playdate_bouncing_ball/src/playdate/graphics.cal`.
+
+### Changed
+- Playdate workflow docs and CLI cheat sheet now document the bootstrap flow and shared binding module layout.
+
 ## [0.2.0] - 2026-04-04
 
 ### Added

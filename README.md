@@ -31,14 +31,15 @@ cargo build --release
 ```
 callisto parse    <file.cal>                  # Parse and dump the AST
 callisto check    <file.cal> [--config path] [--module-root path]...
-callisto emit-lua <file.cal> [-o out.lua|dir] [--config path] [--module-root path]...
-callisto build    <file.cal> [-o out.lua|dir] [--config path] [--module-root path]...
+callisto emit-lua <file.cal> [-o out.lua|dir] [--config path] [--module-root path]... [--playdate-bootstrap]
+callisto build    <file.cal> [-o out.lua|dir] [--config path] [--module-root path]... [--playdate-bootstrap]
 ```
 
 Default output precedence:
 - `-o` flag overrides everything.
 - If `-o` is not provided and config has `out_dir`, config `out_dir` is used.
 - Otherwise output defaults to `out/`.
+- `--playdate-bootstrap` (directory output only) also writes `main.lua` that imports the entry module and calls `update()`.
 
 ## Configuration (v0.2)
 

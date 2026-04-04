@@ -60,22 +60,26 @@ fn run() -> Result<(), i32> {
             output,
             config,
             module_roots,
+            playdate_bootstrap,
         } => emit_lua_command_with_overrides(
             &input,
             output.as_deref(),
             config.as_deref(),
             &module_roots,
+            playdate_bootstrap,
         ),
         Command::Build {
             input,
             output,
             config,
             module_roots,
+            playdate_bootstrap,
         } => build_command_with_overrides(
             &input,
             output.as_deref(),
             config.as_deref(),
             &module_roots,
+            playdate_bootstrap,
         ),
     }
 }
@@ -141,7 +145,7 @@ fn check_command(
 }
 
 fn emit_lua_command(input: &Path, output: Option<&Path>) -> Result<(), i32> {
-    emit_lua_command_with_overrides(input, output, None, &[])
+    emit_lua_command_with_overrides(input, output, None, &[], false)
 }
 
 fn emit_lua_command_with_overrides(
@@ -149,6 +153,7 @@ fn emit_lua_command_with_overrides(
     output: Option<&Path>,
     explicit_config: Option<&Path>,
     cli_module_roots: &[PathBuf],
+    playdate_bootstrap: bool,
 ) -> Result<(), i32> {
     let options = resolve_project_options(input, explicit_config, cli_module_roots)?;
     let (sources, entry_ast, diagnostics, compiled_project) =
@@ -167,6 +172,12 @@ fn emit_lua_command_with_overrides(
         .expect("entry module present");
 
     if output.is_some_and(|path| path.extension().and_then(|e| e.to_str()) == Some("lua")) {
+        if playdate_bootstrap {
+            eprintln!(
+                "--playdate-bootstrap requires a directory output (omit -o file.lua or pass an output directory)"
+            );
+            return Err(2);
+        }
         let lua = codegen_lua::emit_lua_module(&entry.tir, &entry.resolved);
         let output_path = resolve_output_path(output, input, &entry_ast);
         write_lua_file(&output_path, &lua)?;
@@ -184,11 +195,15 @@ fn emit_lua_command_with_overrides(
         println!("wrote {}", output_path.display());
     }
 
+    if playdate_bootstrap {
+        write_playdate_bootstrap(&out_dir, input, &project)?;
+    }
+
     Ok(())
 }
 
 fn build_command(input: &Path, output: Option<&Path>) -> Result<(), i32> {
-    build_command_with_overrides(input, output, None, &[])
+    build_command_with_overrides(input, output, None, &[], false)
 }
 
 fn build_command_with_overrides(
@@ -196,8 +211,15 @@ fn build_command_with_overrides(
     output: Option<&Path>,
     explicit_config: Option<&Path>,
     cli_module_roots: &[PathBuf],
+    playdate_bootstrap: bool,
 ) -> Result<(), i32> {
-    emit_lua_command_with_overrides(input, output, explicit_config, cli_module_roots)
+    emit_lua_command_with_overrides(
+        input,
+        output,
+        explicit_config,
+        cli_module_roots,
+        playdate_bootstrap,
+    )
 }
 
 fn resolve_project_options(
@@ -683,6 +705,70 @@ fn resolve_module_output_path(out_dir: &Path, input: &Path, module: &CompiledMod
     out_dir.join(format!("{}.lua", stem))
 }
 
+fn write_playdate_bootstrap(
+    out_dir: &Path,
+    input: &Path,
+    project: &CompiledProject,
+) -> Result<(), i32> {
+    let entry = project
+        .modules
+        .get(project.entry_index)
+        .expect("entry module present");
+    let main_path = out_dir.join("main.lua");
+
+    if project
+        .modules
+        .iter()
+        .any(|module| resolve_module_output_path(out_dir, input, module) == main_path)
+    {
+        eprintln!(
+            "--playdate-bootstrap would overwrite '{}' emitted from a module; rename the module or disable bootstrap",
+            main_path.display()
+        );
+        return Err(1);
+    }
+
+    let has_update = entry.resolved.func_infos.iter().any(|info| {
+        matches!(info.vis, ast::Visibility::Public)
+            && matches!(info.kind, types::FuncKind::Normal)
+            && info.name == "update"
+            && info.params.is_empty()
+            && matches!(info.ret, types::Type::Unit)
+    });
+    if !has_update {
+        let module_name = if entry.parsed.module_path.is_empty() {
+            "<entry>".to_string()
+        } else {
+            entry.parsed.module_path.join(".")
+        };
+        eprintln!(
+            "--playdate-bootstrap requires entry module '{}' to export `pub fn update() -> Unit`",
+            module_name
+        );
+        return Err(1);
+    }
+
+    let entry_out = resolve_module_output_path(out_dir, input, entry);
+    let rel = entry_out
+        .strip_prefix(out_dir)
+        .expect("entry output should be inside out_dir");
+    let mut import_rel = rel.to_path_buf();
+    import_rel.set_extension("");
+    let import_path = import_rel
+        .to_string_lossy()
+        .replace('\\', "/")
+        .trim_start_matches("./")
+        .to_string();
+
+    let lua = format!(
+        "local game = import \"{}\"\n\nfunction playdate.update()\n    game.update()\nend\n",
+        import_path
+    );
+    write_lua_file(&main_path, &lua)?;
+    println!("wrote {}", main_path.display());
+    Ok(())
+}
+
 fn write_lua_file(path: &Path, lua: &str) -> Result<(), i32> {
     if let Some(parent) = path.parent() {
         if let Err(err) = std::fs::create_dir_all(parent) {
@@ -779,7 +865,8 @@ mod tests {
 
     use super::{
         ProjectOptions, check_command, compile_pipeline, compile_pipeline_with_options,
-        emit_lua_command, resolve_output_path, resolve_project_options,
+        emit_lua_command, emit_lua_command_with_overrides, resolve_output_path,
+        resolve_project_options,
     };
 
     fn render_diagnostics_for_source(file_name: &str, source: &str) -> String {
@@ -1732,6 +1819,78 @@ end
         assert!(explicit_out.join("app.lua").is_file());
         assert!(explicit_out.join("lib").join("math.lua").is_file());
         assert!(!src_dir.join("cfg_build").join("app.lua").is_file());
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn emit_lua_playdate_bootstrap_writes_main_shim() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_playdate_bootstrap_{}", nonce));
+        let out_dir = root.join("out");
+        std::fs::create_dir_all(&root).expect("failed to create root");
+
+        let entry = root.join("game.cal");
+        std::fs::write(
+            &entry,
+            r#"
+module app.game
+
+pub fn update() -> Unit do
+  ()
+end
+"#,
+        )
+        .expect("failed to write entry");
+
+        emit_lua_command_with_overrides(&entry, Some(out_dir.as_path()), None, &[], true)
+            .expect("emit failed");
+
+        let module_lua = out_dir.join("app").join("game.lua");
+        assert!(module_lua.is_file(), "missing module output");
+        let shim = out_dir.join("main.lua");
+        assert!(shim.is_file(), "missing playdate shim");
+        let shim_text = std::fs::read_to_string(&shim).expect("read shim");
+        assert!(
+            shim_text.contains("local game = import \"app/game\""),
+            "{shim_text}"
+        );
+        assert!(shim_text.contains("game.update()"), "{shim_text}");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn emit_lua_playdate_bootstrap_requires_public_zero_arg_update() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root =
+            std::env::temp_dir().join(format!("callisto_playdate_bootstrap_missing_{}", nonce));
+        let out_dir = root.join("out");
+        std::fs::create_dir_all(&root).expect("failed to create root");
+
+        let entry = root.join("game.cal");
+        std::fs::write(
+            &entry,
+            r#"
+module app.game
+
+pub fn tick() -> Unit do
+  ()
+end
+"#,
+        )
+        .expect("failed to write entry");
+
+        let result =
+            emit_lua_command_with_overrides(&entry, Some(out_dir.as_path()), None, &[], true);
+        assert_eq!(result.unwrap_err(), 1);
+        assert!(!out_dir.join("main.lua").is_file());
 
         let _ = std::fs::remove_dir_all(root);
     }

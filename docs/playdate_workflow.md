@@ -42,66 +42,67 @@ my-game/
 
 ## Playdate SDK Bindings (Works Today)
 
-The SDK is accessed through Lua globals (`playdate.graphics.sprite.new()`, etc.). Callisto's `extern module` declarations map directly to this — extern function paths join with `.` and emit verbatim as Lua calls. No glue needed.
+The SDK is accessed through Lua globals (`playdate.graphics.sprite.new()`, etc.). The cleanest shared-binding pattern is module-path files with `pub extern fn` declarations:
 
-**Create `src/playdate.cal` (shared bindings):**
+**Create `src/playdate/graphics.cal`:**
 ```callisto
-module playdate
+module playdate.graphics
 
-extern module playdate.graphics do
-  extern fn clear() -> ()
-  extern fn setColor(color: Int) -> ()
-end
-
-extern module playdate.graphics.sprite do
-  extern fn new() -> Int          -- returns sprite handle (opaque for now)
-  extern fn update() -> ()
-end
-
-extern module playdate.timer do
-  extern fn updateTimers() -> ()
-end
-
-extern module playdate do
-  -- playdate.update is set by assigning a function; use a helper
-end
+pub extern fn clear() -> Unit
+pub extern fn setColor(color: Int) -> Unit
+pub extern fn drawText(text: String, x: Int, y: Int) -> Unit
 ```
 
-These emit as `playdate.graphics.clear()`, `playdate.graphics.sprite.new()`, etc. — exactly the right Lua.
+Then use it from game code with:
+```callisto
+import playdate.graphics
+```
+
+Calls still emit as `playdate.graphics.clear()`, `playdate.graphics.sprite.new()`, etc.
 
 ---
 
 ## Update Loop Pattern
 
-Playdate games work by assigning to `playdate.update`. In Callisto today, the cleanest approach is a thin `main.lua` shim that bootstraps the compiled module:
+Playdate games work by assigning to `playdate.update`. You now have two options:
+
+1. **Auto shim:** `callisto build src/game.cal -o Source/ --playdate-bootstrap`
+2. **Manual shim:** keep a hand-written `Source/main.lua` file
+
+Auto shim writes `Source/main.lua` that imports the compiled entry module and calls `game.update()` every frame. It requires the entry module to export:
+
+```callisto
+pub fn update() -> Unit do
+  ()
+end
+```
+
+Manual shim (same as before):
 
 ```lua
--- Source/main.lua (hand-written shim, ~5 lines)
 local game = import "game"   -- loads game.lua emitted by Callisto
 function playdate.update()
   game.update()
 end
 ```
 
-Then `src/game.cal` exports a `pub fn update()` that Callisto compiles to `game.lua`. This keeps the Callisto code self-contained and testable.
-
 **Alternative (single-module, no shim):** Put everything in `src/main.cal` compiled to `Source/main.lua` with `-o Source/main.lua`. The emitted Lua includes all functions. Then a one-line extern + call at the bottom sets up the loop. Simpler for small games.
 
 ---
 
-## Multi-Module Loading (Current Gap)
+## Multi-Module Loading
 
-When Callisto emits multiple files, it does NOT emit `require()`/`import` calls. Cross-module calls become extern path expressions (e.g., `player.move()`), which need `player` to be a Lua global.
+When Callisto emits multiple files, cross-module calls still rely on Playdate `import` at runtime.
 
-**Workaround today:** The `main.lua` shim loads each module and assigns it to a global:
+`--playdate-bootstrap` closes the most common gap by generating a `main.lua` shim automatically. For custom startup (multiple module preloads, init order, runtime state wiring), keep using a manual `main.lua` shim.
+
+Example manual preload shim:
 ```lua
 local player = import "player"    -- sets _ENV.player implicitly under Playdate's import
 local level  = import "level"
 ```
 
 Playdate's `import` (not standard Lua `require`) executes the file in the global scope if it returns nothing, or assigns the return value. Since each Callisto module returns `M`, you need explicit assignment.
-
-**v0.2 status:** `callisto.toml` + `--module-root` are now wired for deterministic module resolution, but codegen still does not auto-emit Playdate `import` bootstrap calls. Keep using the shim for now.
 
 ---
 
@@ -113,7 +114,7 @@ fswatch -o src/ | xargs -n1 -I{} make build
 
 # In Makefile:
 build:
-    callisto build src/main.cal -o Source/
+    callisto build src/main.cal -o Source/ --playdate-bootstrap
     pdc Source/ MyGame.pdx
 
 run: build
@@ -126,11 +127,11 @@ The Playdate Simulator has a "Reload Game" hotkey (`⌘R`) — combine with fswa
 
 ## What to Build Next (Priority Order)
 
-1. **`playdate.cal` bindings module** — Write extern declarations for the core SDK surface (`graphics`, `sprite`, `input`, `sound`, `timer`). This is the highest-leverage thing: it unlocks type-safe SDK calls immediately.
+1. **Expand shared SDK bindings** — Grow `playdate/*` module coverage (`graphics.sprite`, `input`, `sound`, `timer`) with `pub extern fn` declarations.
 
 2. **A small real game** (e.g., Pong or a bouncing ball) — Acts as a living integration test and drives what bindings are missing.
 
-3. **Codegen: emit Playdate `import` calls** — Extend codegen to emit `import "module_name"` in `main.lua` automatically, removing the hand-written shim.
+3. **Bootstrap customization** — Extend `--playdate-bootstrap` with configurable update target and optional multi-import preloads.
 
 4. **Playdate-oriented build glue** — Add a first-party command or template that runs `callisto build` + `pdc` with stable output paths.
 

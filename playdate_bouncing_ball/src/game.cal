@@ -2,11 +2,6 @@ module game
 
 import playdate.graphics
 
-extern module playdate.graphics do
-  extern fn clear() -> Unit
-  extern fn drawText(text: String, x: Int, y: Int) -> Unit
-end
-
 type Ball {
   x: Int,
   y: Int,

@@ -20,12 +20,14 @@ pub enum Command {
         output: Option<PathBuf>,
         config: Option<PathBuf>,
         module_roots: Vec<PathBuf>,
+        playdate_bootstrap: bool,
     },
     Build {
         input: PathBuf,
         output: Option<PathBuf>,
         config: Option<PathBuf>,
         module_roots: Vec<PathBuf>,
+        playdate_bootstrap: bool,
     },
 }
 
@@ -67,6 +69,7 @@ impl Cli {
                 let mut output = None;
                 let mut config = None;
                 let mut module_roots = Vec::new();
+                let mut playdate_bootstrap = false;
                 while let Some(flag) = args.next() {
                     match flag.as_str() {
                         "-o" => {
@@ -89,6 +92,9 @@ impl Cli {
                                 .next()
                                 .ok_or_else(|| "expected path after --module-root".to_string())?;
                             module_roots.push(PathBuf::from(path));
+                        }
+                        "--playdate-bootstrap" => {
+                            playdate_bootstrap = true;
                         }
                         _ => return Err(format!("unknown flag '{}'", flag)),
                     }
@@ -98,6 +104,7 @@ impl Cli {
                     output,
                     config,
                     module_roots,
+                    playdate_bootstrap,
                 }
             }
             "build" => {
@@ -105,6 +112,7 @@ impl Cli {
                 let mut output = None;
                 let mut config = None;
                 let mut module_roots = Vec::new();
+                let mut playdate_bootstrap = false;
                 while let Some(flag) = args.next() {
                     match flag.as_str() {
                         "-o" => {
@@ -128,6 +136,9 @@ impl Cli {
                                 .ok_or_else(|| "expected path after --module-root".to_string())?;
                             module_roots.push(PathBuf::from(path));
                         }
+                        "--playdate-bootstrap" => {
+                            playdate_bootstrap = true;
+                        }
                         _ => return Err(format!("unknown flag '{}'", flag)),
                     }
                 }
@@ -136,6 +147,7 @@ impl Cli {
                     output,
                     config,
                     module_roots,
+                    playdate_bootstrap,
                 }
             }
             _ => return Err(usage()),
@@ -178,8 +190,8 @@ fn usage() -> String {
     "Usage:
   callisto parse <input.cal>
   callisto check <input.cal> [--config path] [--module-root path]...
-  callisto emit-lua <input.cal> [-o out.lua|out_dir] [--config path] [--module-root path]...
-  callisto build <input.cal> [-o out.lua|out_dir] [--config path] [--module-root path]...
+  callisto emit-lua <input.cal> [-o out.lua|out_dir] [--config path] [--module-root path]... [--playdate-bootstrap]
+  callisto build <input.cal> [-o out.lua|out_dir] [--config path] [--module-root path]... [--playdate-bootstrap]
 
 Examples:
   callisto check src/main.cal --config callisto.toml
@@ -191,7 +203,8 @@ Precedence:
   CLI flags override config values.
   --config selects config source.
   --module-root values override config module_roots.
-  -o overrides config out_dir."
+  -o overrides config out_dir.
+  --playdate-bootstrap writes a Playdate `main.lua` shim in output directories."
         .to_string()
 }
 
@@ -251,11 +264,13 @@ mod tests {
                 output,
                 config,
                 module_roots,
+                playdate_bootstrap,
             } => {
                 assert_eq!(input, PathBuf::from("src/main.cal"));
                 assert_eq!(output, Some(PathBuf::from("out_dir")));
                 assert_eq!(config, Some(PathBuf::from("callisto.toml")));
                 assert_eq!(module_roots, vec![PathBuf::from("deps")]);
+                assert!(!playdate_bootstrap);
             }
             _ => panic!("expected emit-lua command"),
         }
@@ -279,6 +294,7 @@ mod tests {
                 output,
                 config,
                 module_roots,
+                playdate_bootstrap,
             } => {
                 assert_eq!(input, PathBuf::from("src/main.cal"));
                 assert!(output.is_none());
@@ -287,8 +303,38 @@ mod tests {
                     module_roots,
                     vec![PathBuf::from("lib"), PathBuf::from("vendor")]
                 );
+                assert!(!playdate_bootstrap);
             }
             _ => panic!("expected build command"),
+        }
+    }
+
+    #[test]
+    fn parses_emit_lua_with_playdate_bootstrap() {
+        let cli = Cli::parse_from_args([
+            "emit-lua",
+            "src/main.cal",
+            "--playdate-bootstrap",
+            "--module-root",
+            "deps",
+        ])
+        .expect("parse cli");
+
+        match cli.command {
+            Command::EmitLua {
+                input,
+                output,
+                config,
+                module_roots,
+                playdate_bootstrap,
+            } => {
+                assert_eq!(input, PathBuf::from("src/main.cal"));
+                assert!(output.is_none());
+                assert!(config.is_none());
+                assert_eq!(module_roots, vec![PathBuf::from("deps")]);
+                assert!(playdate_bootstrap);
+            }
+            _ => panic!("expected emit-lua command"),
         }
     }
 

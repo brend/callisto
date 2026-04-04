@@ -1,0 +1,4 @@
+module playdate.graphics
+
+pub extern fn clear() -> Unit
+pub extern fn drawText(text: String, x: Int, y: Int) -> Unit
