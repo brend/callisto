@@ -30,12 +30,36 @@ cargo build --release
 
 ```
 callisto parse    <file.cal>                  # Parse and dump the AST
-callisto check    <file.cal>                  # Type-check without emitting
-callisto emit-lua <file.cal> [-o out.lua|dir] # Transpile to Lua
-callisto build    <file.cal> [-o out.lua|dir] # Alias for emit-lua
+callisto check    <file.cal> [--config path] [--module-root path]...
+callisto emit-lua <file.cal> [-o out.lua|dir] [--config path] [--module-root path]...
+callisto build    <file.cal> [-o out.lua|dir] [--config path] [--module-root path]...
 ```
 
-Output defaults to `out/<module>.lua` when `-o` is not specified.
+Default output precedence:
+- `-o` flag overrides everything.
+- If `-o` is not provided and config has `out_dir`, config `out_dir` is used.
+- Otherwise output defaults to `out/`.
+
+## Configuration (v0.2 M1)
+
+`callisto.toml` is supported for project-level configuration.
+
+Discovery:
+- Use explicit `--config <path>` if provided.
+- Otherwise, check for `callisto.toml` in the entry file directory.
+- If no config exists, defaults are used.
+
+Example:
+
+```toml
+module_roots = ["../shared", "/absolute/path/to/vendor"]
+out_dir = "build"
+package = "demo.app"
+```
+
+Resolution precedence:
+- Module roots: CLI `--module-root` entries (in order) override config `module_roots`; if neither is provided, the entry file directory root is used.
+- Output directory: `-o` overrides config `out_dir`; config `out_dir` overrides default `out`.
 
 ## v0.1 Scope
 

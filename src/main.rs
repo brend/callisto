@@ -3,6 +3,7 @@
 mod ast;
 mod cli;
 mod codegen_lua;
+mod config;
 mod diagnostics;
 mod interner;
 mod lexer;
@@ -21,6 +22,7 @@ use std::{
 };
 
 use cli::{Cli, Command};
+use config::ConfigSource;
 use diagnostics::Diagnostics;
 use source::SourceDb;
 use span::FileId;
@@ -43,9 +45,33 @@ fn run() -> Result<(), i32> {
 
     match cli.command {
         Command::Parse { input } => parse_command(&input),
-        Command::Check { input } => check_command(&input),
-        Command::EmitLua { input, output } => emit_lua_command(&input, output.as_deref()),
-        Command::Build { input, output } => build_command(&input, output.as_deref()),
+        Command::Check {
+            input,
+            config,
+            module_roots,
+        } => check_command(&input, config.as_deref(), &module_roots),
+        Command::EmitLua {
+            input,
+            output,
+            config,
+            module_roots,
+        } => emit_lua_command_with_overrides(
+            &input,
+            output.as_deref(),
+            config.as_deref(),
+            &module_roots,
+        ),
+        Command::Build {
+            input,
+            output,
+            config,
+            module_roots,
+        } => build_command_with_overrides(
+            &input,
+            output.as_deref(),
+            config.as_deref(),
+            &module_roots,
+        ),
     }
 }
 
@@ -71,6 +97,13 @@ struct CompiledProject {
     entry_index: usize,
 }
 
+#[derive(Debug, Clone)]
+struct ProjectOptions {
+    module_roots: Vec<PathBuf>,
+    default_out_dir: PathBuf,
+    config_source: ConfigSource,
+}
+
 fn parse_command(input: &Path) -> Result<(), i32> {
     let (sources, ast, diagnostics, _) = compile_pipeline(input)?;
     println!("{:#?}", ast);
@@ -85,8 +118,13 @@ fn parse_command(input: &Path) -> Result<(), i32> {
     Ok(())
 }
 
-fn check_command(input: &Path) -> Result<(), i32> {
-    let (sources, _, diagnostics, _) = compile_pipeline(input)?;
+fn check_command(
+    input: &Path,
+    explicit_config: Option<&Path>,
+    cli_module_roots: &[PathBuf],
+) -> Result<(), i32> {
+    let options = resolve_project_options(input, explicit_config, cli_module_roots)?;
+    let (sources, _, diagnostics, _) = compile_pipeline_with_options(input, &options)?;
     if !diagnostics.is_empty() {
         eprint!("{}", diagnostics.render(&sources));
     }
@@ -98,7 +136,18 @@ fn check_command(input: &Path) -> Result<(), i32> {
 }
 
 fn emit_lua_command(input: &Path, output: Option<&Path>) -> Result<(), i32> {
-    let (sources, entry_ast, diagnostics, compiled_project) = compile_project(input)?;
+    emit_lua_command_with_overrides(input, output, None, &[])
+}
+
+fn emit_lua_command_with_overrides(
+    input: &Path,
+    output: Option<&Path>,
+    explicit_config: Option<&Path>,
+    cli_module_roots: &[PathBuf],
+) -> Result<(), i32> {
+    let options = resolve_project_options(input, explicit_config, cli_module_roots)?;
+    let (sources, entry_ast, diagnostics, compiled_project) =
+        compile_project_with_options(input, &options)?;
     if !diagnostics.is_empty() {
         eprint!("{}", diagnostics.render(&sources));
     }
@@ -122,7 +171,7 @@ fn emit_lua_command(input: &Path, output: Option<&Path>) -> Result<(), i32> {
 
     let out_dir = output
         .map(Path::to_path_buf)
-        .unwrap_or_else(|| PathBuf::from("out"));
+        .unwrap_or_else(|| options.default_out_dir.clone());
     for module in &project.modules {
         let lua = codegen_lua::emit_lua_module(&module.tir, &module.resolved);
         let output_path = resolve_module_output_path(&out_dir, input, module);
@@ -134,16 +183,91 @@ fn emit_lua_command(input: &Path, output: Option<&Path>) -> Result<(), i32> {
 }
 
 fn build_command(input: &Path, output: Option<&Path>) -> Result<(), i32> {
-    emit_lua_command(input, output)
+    build_command_with_overrides(input, output, None, &[])
+}
+
+fn build_command_with_overrides(
+    input: &Path,
+    output: Option<&Path>,
+    explicit_config: Option<&Path>,
+    cli_module_roots: &[PathBuf],
+) -> Result<(), i32> {
+    emit_lua_command_with_overrides(input, output, explicit_config, cli_module_roots)
+}
+
+fn resolve_project_options(
+    input: &Path,
+    explicit_config: Option<&Path>,
+    cli_module_roots: &[PathBuf],
+) -> Result<ProjectOptions, i32> {
+    let loaded = match config::load_project_config(input, explicit_config) {
+        Ok(loaded) => loaded,
+        Err(err) => {
+            eprintln!("{}", err);
+            return Err(2);
+        }
+    };
+    let config::LoadedProjectConfig { source, config } = loaded;
+
+    let default_module_root = input
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."));
+    let module_roots = if !cli_module_roots.is_empty() {
+        cli_module_roots
+            .iter()
+            .cloned()
+            .map(normalize_path)
+            .collect::<Vec<_>>()
+    } else if !config.module_roots.is_empty() {
+        config
+            .module_roots
+            .into_iter()
+            .map(normalize_path)
+            .collect::<Vec<_>>()
+    } else {
+        vec![normalize_path(default_module_root)]
+    };
+
+    let default_out_dir = config
+        .out_dir
+        .map(normalize_path)
+        .unwrap_or_else(|| PathBuf::from("out"));
+
+    Ok(ProjectOptions {
+        module_roots,
+        default_out_dir,
+        config_source: source,
+    })
+}
+
+fn default_project_options(input: &Path) -> ProjectOptions {
+    let root = input
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."));
+    ProjectOptions {
+        module_roots: vec![normalize_path(root)],
+        default_out_dir: PathBuf::from("out"),
+        config_source: ConfigSource::Default,
+    }
 }
 
 fn compile_project(
     input: &Path,
 ) -> Result<(SourceDb, ast::Module, Diagnostics, Option<CompiledProject>), i32> {
+    let options = default_project_options(input);
+    compile_project_with_options(input, &options)
+}
+
+fn compile_project_with_options(
+    input: &Path,
+    options: &ProjectOptions,
+) -> Result<(SourceDb, ast::Module, Diagnostics, Option<CompiledProject>), i32> {
     let mut sources = SourceDb::new();
     let mut diagnostics = Diagnostics::new();
 
-    let parsed_modules = load_module_graph(input, &mut sources, &mut diagnostics)?;
+    let parsed_modules = load_module_graph(input, options, &mut sources, &mut diagnostics)?;
     let entry_ast = parsed_modules
         .iter()
         .find(|m| m.is_entry)
@@ -209,7 +333,23 @@ fn compile_pipeline(
     ),
     i32,
 > {
-    let (sources, entry_ast, diagnostics, project) = compile_project(input)?;
+    let options = default_project_options(input);
+    compile_pipeline_with_options(input, &options)
+}
+
+fn compile_pipeline_with_options(
+    input: &Path,
+    options: &ProjectOptions,
+) -> Result<
+    (
+        SourceDb,
+        ast::Module,
+        Diagnostics,
+        Option<(resolve::ResolvedModule, tir::TirModule)>,
+    ),
+    i32,
+> {
+    let (sources, entry_ast, diagnostics, project) = compile_project_with_options(input, options)?;
     let compiled = project.and_then(|project| {
         project
             .modules
@@ -222,13 +362,10 @@ fn compile_pipeline(
 
 fn load_module_graph(
     input: &Path,
+    options: &ProjectOptions,
     sources: &mut SourceDb,
     diagnostics: &mut Diagnostics,
 ) -> Result<Vec<ParsedModule>, i32> {
-    let root_dir = input
-        .parent()
-        .map(Path::to_path_buf)
-        .unwrap_or_else(|| PathBuf::from("."));
     let mut queue: VecDeque<(PathBuf, Option<Vec<String>>, bool)> = VecDeque::new();
     queue.push_back((input.to_path_buf(), None, true));
 
@@ -316,17 +453,33 @@ fn load_module_graph(
             if explicit_extern_paths.contains(&import_key) {
                 continue;
             }
-            match find_module_file(&root_dir, &import.path) {
+            let lookup = find_module_file(&options.module_roots, &import.path);
+            match lookup.path {
                 Some(import_path) => {
                     queue.push_back((import_path, Some(import.path.clone()), false));
                 }
-                None => diagnostics.error(
-                    import.span,
-                    format!(
-                        "could not find module file for import '{}'",
-                        import.path.join(".")
-                    ),
-                ),
+                None => {
+                    let note = if lookup.attempted.is_empty() {
+                        "attempted paths: <none>".to_string()
+                    } else {
+                        let attempted = lookup
+                            .attempted
+                            .iter()
+                            .map(|p| p.display().to_string())
+                            .collect::<Vec<_>>()
+                            .join("\n  - ");
+                        format!("attempted paths:\n  - {}", attempted)
+                    };
+                    diagnostics.error_with_note(
+                        import.span,
+                        format!(
+                            "could not find module file for import '{}'",
+                            import.path.join(".")
+                        ),
+                        import.span,
+                        note,
+                    );
+                }
             }
         }
 
@@ -549,9 +702,17 @@ fn normalize_path(path: PathBuf) -> PathBuf {
     }
 }
 
-fn find_module_file(root_dir: &Path, module_path: &[String]) -> Option<PathBuf> {
+struct ModuleLookup {
+    path: Option<PathBuf>,
+    attempted: Vec<PathBuf>,
+}
+
+fn find_module_file(root_dirs: &[PathBuf], module_path: &[String]) -> ModuleLookup {
     if module_path.is_empty() {
-        return None;
+        return ModuleLookup {
+            path: None,
+            attempted: Vec::new(),
+        };
     }
 
     let relative = module_path.iter().fold(PathBuf::new(), |mut acc, segment| {
@@ -559,27 +720,40 @@ fn find_module_file(root_dir: &Path, module_path: &[String]) -> Option<PathBuf> 
         acc
     });
 
-    let file_candidates = ["luna", "cal"].into_iter().map(|ext| {
-        let mut path = root_dir.join(&relative);
-        path.set_extension(ext);
-        path
-    });
-    for candidate in file_candidates {
-        if candidate.is_file() {
-            return Some(candidate);
+    let mut attempted = Vec::new();
+    for root_dir in root_dirs {
+        let file_candidates = ["luna", "cal"].into_iter().map(|ext| {
+            let mut path = root_dir.join(&relative);
+            path.set_extension(ext);
+            path
+        });
+        for candidate in file_candidates {
+            attempted.push(candidate.clone());
+            if candidate.is_file() {
+                return ModuleLookup {
+                    path: Some(candidate),
+                    attempted,
+                };
+            }
+        }
+        let mod_candidates = ["mod.luna", "mod.cal"]
+            .into_iter()
+            .map(|name| root_dir.join(&relative).join(name));
+        for candidate in mod_candidates {
+            attempted.push(candidate.clone());
+            if candidate.is_file() {
+                return ModuleLookup {
+                    path: Some(candidate),
+                    attempted,
+                };
+            }
         }
     }
 
-    let mod_candidates = ["mod.luna", "mod.cal"]
-        .into_iter()
-        .map(|name| root_dir.join(&relative).join(name));
-    for candidate in mod_candidates {
-        if candidate.is_file() {
-            return Some(candidate);
-        }
+    ModuleLookup {
+        path: None,
+        attempted,
     }
-
-    None
 }
 
 #[cfg(test)]
@@ -589,9 +763,12 @@ mod tests {
         time::{SystemTime, UNIX_EPOCH},
     };
 
-    use crate::{codegen_lua, lexer, parser, resolve, typecheck};
+    use crate::{codegen_lua, config::ConfigSource, lexer, parser, resolve, typecheck};
 
-    use super::{compile_pipeline, emit_lua_command, resolve_output_path};
+    use super::{
+        ProjectOptions, compile_pipeline, compile_pipeline_with_options, emit_lua_command,
+        resolve_output_path, resolve_project_options,
+    };
 
     #[test]
     fn full_pipeline_compiles_and_emits_lua_for_feature_rich_module() {
@@ -977,6 +1154,200 @@ end
         let (_, _, diagnostics, compiled) = compile_pipeline(&entry).expect("pipeline failed");
         assert!(!diagnostics.has_errors(), "{:?}", diagnostics.items);
         assert!(compiled.is_some());
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn module_resolution_prefers_first_matching_root_in_order() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_multiroot_order_{}", nonce));
+        let entry_dir = root.join("entry");
+        let root_a = root.join("roots").join("a");
+        let root_b = root.join("roots").join("b");
+        std::fs::create_dir_all(entry_dir.as_path()).expect("failed to create entry dir");
+        std::fs::create_dir_all(root_a.join("foo")).expect("failed to create root_a");
+        std::fs::create_dir_all(root_b.join("foo")).expect("failed to create root_b");
+
+        let module_path_a = root_a.join("foo").join("bar.luna");
+        std::fs::write(
+            &module_path_a,
+            r#"
+module foo.bar
+
+pub fn value() -> Int do
+  true
+end
+"#,
+        )
+        .expect("failed to write root_a module");
+        std::fs::write(
+            root_b.join("foo").join("bar.luna"),
+            r#"
+module foo.bar
+
+pub fn value() -> Int do
+  1
+end
+"#,
+        )
+        .expect("failed to write root_b module");
+
+        let entry = entry_dir.join("main.luna");
+        std::fs::write(
+            &entry,
+            r#"
+module app
+
+import foo.bar
+
+fn main() -> Int do
+  bar.value()
+end
+"#,
+        )
+        .expect("failed to write entry module");
+
+        let options = ProjectOptions {
+            module_roots: vec![root_a.clone(), root_b.clone()],
+            default_out_dir: PathBuf::from("out"),
+            config_source: ConfigSource::Default,
+        };
+
+        let (sources, _, diagnostics, compiled) =
+            compile_pipeline_with_options(&entry, &options).expect("pipeline failed");
+        assert!(diagnostics.has_errors());
+        assert!(compiled.is_none());
+        let rendered = diagnostics.render(&sources);
+        assert!(rendered.contains(module_path_a.to_string_lossy().as_ref()));
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn resolver_defaults_to_entry_directory_root_when_no_config_or_cli_roots() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_multiroot_default_{}", nonce));
+        let lib_dir = root.join("lib");
+        std::fs::create_dir_all(&lib_dir).expect("failed to create temp dirs");
+
+        let lib = lib_dir.join("math.luna");
+        std::fs::write(
+            &lib,
+            r#"
+module lib.math
+
+pub fn add(a: Int, b: Int) -> Int do
+  a + b
+end
+"#,
+        )
+        .expect("failed to write lib module");
+
+        let entry = root.join("main.luna");
+        std::fs::write(
+            &entry,
+            r#"
+module app
+
+import lib.math
+
+fn main() -> Int do
+  math.add(1, 2)
+end
+"#,
+        )
+        .expect("failed to write entry module");
+
+        let options = resolve_project_options(&entry, None, &[]).expect("resolve options");
+        assert_eq!(
+            options.module_roots,
+            vec![entry.parent().expect("entry parent").to_path_buf()]
+        );
+
+        let (_, _, diagnostics, compiled) =
+            compile_pipeline_with_options(&entry, &options).expect("pipeline failed");
+        assert!(!diagnostics.has_errors(), "{:?}", diagnostics.items);
+        assert!(compiled.is_some());
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn unresolved_import_reports_attempted_paths_note() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_multiroot_note_{}", nonce));
+        let entry_dir = root.join("entry");
+        let root_a = root.join("roots").join("a");
+        let root_b = root.join("roots").join("b");
+        std::fs::create_dir_all(entry_dir.as_path()).expect("failed to create entry dir");
+        std::fs::create_dir_all(&root_a).expect("failed to create root_a");
+        std::fs::create_dir_all(&root_b).expect("failed to create root_b");
+
+        let entry = entry_dir.join("main.luna");
+        std::fs::write(
+            &entry,
+            r#"
+module app
+
+import missing.mod
+
+fn main() -> Int do
+  0
+end
+"#,
+        )
+        .expect("failed to write entry module");
+
+        let options = ProjectOptions {
+            module_roots: vec![root_a.clone(), root_b.clone()],
+            default_out_dir: PathBuf::from("out"),
+            config_source: ConfigSource::Default,
+        };
+
+        let (_, _, diagnostics, compiled) =
+            compile_pipeline_with_options(&entry, &options).expect("pipeline failed");
+        assert!(diagnostics.has_errors());
+        assert!(compiled.is_none());
+
+        let import_diag = diagnostics
+            .items
+            .iter()
+            .find(|d| {
+                d.message
+                    .contains("could not find module file for import 'missing.mod'")
+            })
+            .expect("missing import diagnostic");
+        assert!(!import_diag.notes.is_empty());
+        let note = &import_diag.notes[0].1;
+        assert!(note.contains("attempted paths:"));
+        assert!(
+            note.contains(
+                root_a
+                    .join("missing")
+                    .join("mod.luna")
+                    .to_string_lossy()
+                    .as_ref()
+            )
+        );
+        assert!(
+            note.contains(
+                root_b
+                    .join("missing")
+                    .join("mod.luna")
+                    .to_string_lossy()
+                    .as_ref()
+            )
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }

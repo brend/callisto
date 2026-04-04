@@ -6,9 +6,9 @@ Use this as the implementation board. Keep tasks checked only when code and test
 
 ## Scope Freeze
 
-- [ ] `callisto.toml` is the config filename for `v0.2`.
-- [ ] Config discovery rule is explicit and documented.
-- [ ] CLI override precedence is explicit and documented.
+- [x] `callisto.toml` is the config filename for `v0.2`.
+- [x] Config discovery rule is explicit and documented.
+- [x] CLI override precedence is explicit and documented.
 
 ## M1 Decisions (Implement As Written)
 
@@ -35,49 +35,49 @@ Use this as the implementation board. Keep tasks checked only when code and test
 
 ### A) Config Model + Loader
 
-- [ ] Add dependency support for config parsing in [Cargo.toml](/Users/waldrumpus/code/callisto/Cargo.toml).
-- [ ] Add `ProjectConfig` and config parsing/validation in `src/config.rs`.
-- [ ] Add `load_project_config(entry_input, explicit_config_path)` API in `src/config.rs`.
-- [ ] Validate `module_roots` for empty/duplicate entries in `src/config.rs`.
-- [ ] Resolve relative config paths against config file directory in `src/config.rs`.
-- [ ] Wire module in [src/main.rs](/Users/waldrumpus/code/callisto/src/main.rs) (`mod config;`).
+- [x] Add dependency support for config parsing in [Cargo.toml](/Users/waldrumpus/code/callisto/Cargo.toml).
+- [x] Add `ProjectConfig` and config parsing/validation in `src/config.rs`.
+- [x] Add `load_project_config(entry_input, explicit_config_path)` API in `src/config.rs`.
+- [x] Validate `module_roots` for empty/duplicate entries in `src/config.rs`.
+- [x] Resolve relative config paths against config file directory in `src/config.rs`.
+- [x] Wire module in [src/main.rs](/Users/waldrumpus/code/callisto/src/main.rs) (`mod config;`).
 
 ### B) CLI Surface
 
-- [ ] Add `--config <path>` in [src/cli.rs](/Users/waldrumpus/code/callisto/src/cli.rs) for `check`, `emit-lua`, and `build`.
-- [ ] Add repeatable `--module-root <path>` in [src/cli.rs](/Users/waldrumpus/code/callisto/src/cli.rs) for `check`, `emit-lua`, and `build`.
-- [ ] Update CLI usage text to include new flags and precedence summary.
-- [ ] Add CLI parser tests for valid and invalid flag combinations.
+- [x] Add `--config <path>` in [src/cli.rs](/Users/waldrumpus/code/callisto/src/cli.rs) for `check`, `emit-lua`, and `build`.
+- [x] Add repeatable `--module-root <path>` in [src/cli.rs](/Users/waldrumpus/code/callisto/src/cli.rs) for `check`, `emit-lua`, and `build`.
+- [x] Update CLI usage text to include new flags and precedence summary.
+- [x] Add CLI parser tests for valid and invalid flag combinations.
 
 ### C) Compiler Pipeline Plumbing
 
-- [ ] Add a compile options struct in [src/main.rs](/Users/waldrumpus/code/callisto/src/main.rs) that carries resolved module roots, output default, and config-source metadata.
-- [ ] Pass options through `check`, `emit-lua`, `build`, `compile_project`, and `load_module_graph`.
+- [x] Add a compile options struct in [src/main.rs](/Users/waldrumpus/code/callisto/src/main.rs) that carries resolved module roots, output default, and config-source metadata.
+- [x] Pass options through `check`, `emit-lua`, `build`, `compile_project`, and `load_module_graph`.
 
 ### D) Resolver Root Search
 
-- [ ] Replace single-root lookup with multi-root search in [src/main.rs](/Users/waldrumpus/code/callisto/src/main.rs), evolving/replacing `find_module_file`.
-- [ ] Preserve existing `.luna|.cal` and `mod.luna|mod.cal` candidate rules in new lookup logic.
-- [ ] On failure, report attempted candidate paths in diagnostics notes.
-- [ ] Preserve backward compatibility when no config/flags are present.
+- [x] Replace single-root lookup with multi-root search in [src/main.rs](/Users/waldrumpus/code/callisto/src/main.rs), evolving/replacing `find_module_file`.
+- [x] Preserve existing `.luna|.cal` and `mod.luna|mod.cal` candidate rules in new lookup logic.
+- [x] On failure, report attempted candidate paths in diagnostics notes.
+- [x] Preserve backward compatibility when no config/flags are present.
 
 ### E) Tests + Fixtures
 
-- [ ] Add unit tests for config loading and validation.
-- [ ] Add resolver tests for root search order.
-- [ ] Add resolver tests for fallback to entry-dir defaults.
-- [ ] Add resolver tests for unresolved-import diagnostics that include attempted paths.
-- [ ] Add one integration-style multi-module fixture using two roots.
+- [x] Add unit tests for config loading and validation.
+- [x] Add resolver tests for root search order.
+- [x] Add resolver tests for fallback to entry-dir defaults.
+- [x] Add resolver tests for unresolved-import diagnostics that include attempted paths.
+- [x] Add one integration-style multi-module fixture using two roots.
 
 ## Definition of Done (M1)
 
-- [ ] `cargo test` passes.
-- [ ] `cargo run -- check <entry.cal>` works with no config.
-- [ ] `cargo run -- check <entry.cal>` works with config-only roots.
-- [ ] `cargo run -- check <entry.cal>` works with CLI-only roots.
-- [ ] `cargo run -- check <entry.cal>` works with CLI overriding config roots.
-- [ ] `cargo run -- emit-lua <entry.cal>` default output behavior follows precedence rules.
-- [ ] README and `docs/v0_2_draft_plan.md` reflect final M1 behavior.
+- [x] `cargo test` passes.
+- [x] `cargo run -- check <entry.cal>` works with no config.
+- [x] `cargo run -- check <entry.cal>` works with config-only roots.
+- [x] `cargo run -- check <entry.cal>` works with CLI-only roots.
+- [x] `cargo run -- check <entry.cal>` works with CLI overriding config roots.
+- [x] `cargo run -- emit-lua <entry.cal>` default output behavior follows precedence rules.
+- [x] README and `docs/v0_2_draft_plan.md` reflect final M1 behavior.
 
 ## Suggested Task Order
 

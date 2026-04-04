@@ -96,6 +96,18 @@ Acceptance criteria:
 - Release checklist completion
 - Changelog + tag preparation
 
+## M1 Status (Implemented)
+
+`M1` is implemented on the current branch with:
+- `callisto.toml` discovery from entry directory, plus explicit `--config`.
+- Config schema fields: `module_roots`, `out_dir`, and `package`.
+- Multi-root module resolution with deterministic search order.
+- Import failure diagnostics that include attempted lookup paths.
+- CLI precedence rules:
+  - `--module-root` overrides config `module_roots`.
+  - `-o` overrides config `out_dir`.
+- Regression tests for config loading/validation and resolver root-selection behavior.
+
 ## Proposed v0.2 Completion Gate
 
 Call `v0.2` complete when all of the following are true:
@@ -108,7 +120,7 @@ Call `v0.2` complete when all of the following are true:
 
 ## Immediate Next Tasks
 
-1. Decide config filename/schema (`callisto.toml`) and CLI precedence rules.
-2. Implement resolver root-search abstraction behind current import loading.
-3. Add first integration fixture with at least three modules across two roots.
-4. Add diagnostics golden harness for resolver/typechecker errors.
+1. Start `M2` by finalizing CLI/config help text and error wording for user-facing UX.
+2. Add dedicated integration fixtures for output path precedence and config override edge-cases.
+3. Draft diagnostics error-code identifiers and golden-test harness design (`M3` prep).
+4. Add release checklist scaffolding for `v0.2` (`M4` prep).
