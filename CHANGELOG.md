@@ -11,10 +11,13 @@ All notable changes to this project will be documented in this file.
 - Shared Playdate bindings package under `playdate_bindings/src`.
 - New `playdate_auto_bootstrap/` sample project that exercises auto-shim output.
 - `v0.3` planning docs: draft plan and `M1` execution checklist.
+- Shared `playdate.input` binding helper module.
+- `v0.3` `M2` binding-execution checklist.
 
 ### Changed
 - Playdate workflow docs and CLI cheat sheet now document bootstrap flow and shared binding module-root usage.
 - `playdate_bouncing_ball` now consumes shared bindings via `module_roots`.
+- `playdate_bouncing_ball` gameplay now exercises more language features (sum types, `match`, `impl`, and record updates).
 
 ## [0.2.0] - 2026-04-04
 

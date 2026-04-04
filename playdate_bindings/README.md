@@ -6,6 +6,7 @@ Shared extern module declarations for Playdate SDK access from Callisto projects
 
 - `src/playdate.cal`: root `playdate.*` functions
 - `src/playdate/graphics.cal`: graphics APIs
+- `src/playdate/input.cal`: button/input helpers
 - `src/playdate/graphics/sprite.cal`: sprite APIs
 - `src/playdate/timer.cal`: timer APIs
 
@@ -22,6 +23,7 @@ Then import the modules you need:
 ```callisto
 import playdate
 import playdate.graphics
+import playdate.input
 import playdate.graphics.sprite
 import playdate.timer
 ```

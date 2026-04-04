@@ -1,0 +1,51 @@
+module playdate.input
+
+import playdate
+
+fn k_button_left() -> Int do
+  1
+end
+
+fn k_button_right() -> Int do
+  2
+end
+
+fn k_button_up() -> Int do
+  4
+end
+
+fn k_button_down() -> Int do
+  8
+end
+
+fn k_button_b() -> Int do
+  16
+end
+
+fn k_button_a() -> Int do
+  32
+end
+
+pub fn left_pressed() -> Bool do
+  playdate.buttonIsPressed(k_button_left())
+end
+
+pub fn right_pressed() -> Bool do
+  playdate.buttonIsPressed(k_button_right())
+end
+
+pub fn up_pressed() -> Bool do
+  playdate.buttonIsPressed(k_button_up())
+end
+
+pub fn down_pressed() -> Bool do
+  playdate.buttonIsPressed(k_button_down())
+end
+
+pub fn a_pressed() -> Bool do
+  playdate.buttonIsPressed(k_button_a())
+end
+
+pub fn b_just_pressed() -> Bool do
+  playdate.buttonJustPressed(k_button_b())
+end

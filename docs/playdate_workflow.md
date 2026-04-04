@@ -7,6 +7,7 @@ Callisto compiles `.cal` source to Lua. The Panic Playdate runs Lua 5.4 via its 
 Current planning docs:
 - [`docs/v0_3_draft_plan.md`](docs/v0_3_draft_plan.md)
 - [`docs/v0_3_m1_playdate_execution_checklist.md`](docs/v0_3_m1_playdate_execution_checklist.md)
+- [`docs/v0_3_m2_bindings_execution_checklist.md`](docs/v0_3_m2_bindings_execution_checklist.md)
 
 ---
 
@@ -56,6 +57,7 @@ module_roots = ["src", "../playdate_bindings/src"]
 Current shared modules:
 - `playdate`
 - `playdate.graphics`
+- `playdate.input`
 - `playdate.graphics.sprite`
 - `playdate.timer`
 
@@ -63,6 +65,7 @@ Then import the modules you need:
 ```callisto
 import playdate
 import playdate.graphics
+import playdate.input
 ```
 
 Calls emit as `playdate.graphics.clear()`, `playdate.getCrankChange()`, etc.
@@ -107,6 +110,7 @@ Example manual preload shim:
 ```lua
 local player = import "player"    -- sets _ENV.player implicitly under Playdate's import
 local level  = import "level"
+playdate.input = import "playdate/input"
 ```
 
 Playdate's `import` (not standard Lua `require`) executes the file in the global scope if it returns nothing, or assigns the return value. Since each Callisto module returns `M`, you need explicit assignment.
@@ -135,6 +139,7 @@ The Playdate Simulator has a "Reload Game" hotkey (`⌘R`) — combine with fswa
 ## Reference Projects
 
 - `playdate_bouncing_ball/`: manual `Source/main.lua` shim pattern (state owned by Lua).
+  Uses records, `impl` methods, sum types, and `match` in gameplay logic.
 - `playdate_auto_bootstrap/`: auto-shim pattern using `--playdate-bootstrap`.
 
 ## What to Build Next (Priority Order)

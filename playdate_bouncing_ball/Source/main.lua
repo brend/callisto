@@ -1,4 +1,5 @@
 local game = import "game"
+playdate.input = import "playdate/input"
 local ball = { x = 200, y = 120, vx = 3, vy = 0 }
 
 local function round_to_int(v)

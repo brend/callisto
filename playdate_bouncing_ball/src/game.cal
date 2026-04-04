@@ -1,6 +1,7 @@
 module game
 
 import playdate.graphics
+import playdate.input
 
 type Ball {
   x: Int,
@@ -8,6 +9,19 @@ type Ball {
   vx: Int,
   vy: Int
 }
+
+type ControlMode = | Crank | Buttons
+type StepResult = | Continue(Ball) | Reset
+
+impl Ball do
+  fn moved(self: Ball, dx: Int, dy: Int) -> Ball do
+    self with { x = self.x + dx, y = self.y + dy }
+  end
+end
+
+fn spawn_ball() -> Ball do
+  Ball { x = 200, y = 120, vx = 3, vy = 0 }
+end
 
 fn clamp(v: Int, lo: Int, hi: Int) -> Int do
   if v < lo then
@@ -47,30 +61,75 @@ fn bounce_y(moved_y: Int, vy: Int) -> Int do
   end
 end
 
-pub fn render(ball: Ball) -> Unit do
-  graphics.clear()
-  graphics.drawText("O", ball.x, ball.y)
-  graphics.drawText("Crank to curve", 8, 8)
-  ()
+fn mode_label(mode: ControlMode) -> String do
+  match mode do
+    case Crank => "Mode: Crank (hold A for d-pad)"
+    case Buttons => "Mode: D-pad (B resets)"
+  end
 end
 
-pub fn step(ball: Ball, crank_delta: Int) -> Ball do
+fn choose_mode() -> ControlMode do
+  if input.a_pressed() then
+    Buttons
+  else
+    Crank
+  end
+end
+
+fn control_delta(mode: ControlMode, crank_delta: Int) -> Int do
+  match mode do
+    case Crank => crank_delta / 4
+    case Buttons =>
+      if input.up_pressed() then
+        0 - 2
+      elseif input.down_pressed() then
+        2
+      else
+        0
+      end
+  end
+end
+
+fn integrate_ball(ball: Ball, vy_delta: Int) -> Ball do
   let max_vy = 8
-  let boosted_vy = ball.vy + (crank_delta / 4)
-  let target_vy = clamp(boosted_vy, 0 - max_vy, max_vy)
+  let target_vy = clamp(ball.vy + vy_delta, 0 - max_vy, max_vy)
+  let moved = ball.moved(ball.vx, target_vy)
 
-  let moved_x = ball.x + ball.vx
-  let moved_y = ball.y + target_vy
+  let next_x = clamp_x(moved.x)
+  let next_y = clamp_y(moved.y)
+  let next_vx = bounce_x(moved.x, ball.vx)
+  let next_vy = bounce_y(moved.y, target_vy)
 
-  let next_x = clamp_x(moved_x)
-  let next_y = clamp_y(moved_y)
-  let next_vx = bounce_x(moved_x, ball.vx)
-  let next_vy = bounce_y(moved_y, target_vy)
-
-  Ball {
+  moved with {
     x = next_x,
     y = next_y,
     vx = next_vx,
     vy = next_vy
   }
+end
+
+fn decide_step(ball: Ball, mode: ControlMode, crank_delta: Int) -> StepResult do
+  if input.b_just_pressed() then
+    Reset
+  else
+    Continue(integrate_ball(ball, control_delta(mode, crank_delta)))
+  end
+end
+
+pub fn render(ball: Ball) -> Unit do
+  let mode = choose_mode()
+  graphics.clear()
+  graphics.drawText("O", ball.x, ball.y)
+  graphics.drawText(mode_label(mode), 8, 8)
+  graphics.drawText("A hold: d-pad mode", 8, 24)
+  graphics.drawText("B: reset ball", 8, 40)
+  ()
+end
+
+pub fn step(ball: Ball, crank_delta: Int) -> Ball do
+  let mode = choose_mode()
+  match decide_step(ball, mode, crank_delta) do
+    case Continue(next) => next
+    case Reset => spawn_ball()
+  end
 end

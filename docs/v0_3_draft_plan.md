@@ -64,6 +64,7 @@ Acceptance criteria:
 2. `M2: Binding Surface Expansion`
 - Add broader SDK coverage (input/sound/system APIs as needed)
 - Add sample-driven validation for newly added bindings
+- Checklist: [`docs/v0_3_m2_bindings_execution_checklist.md`](docs/v0_3_m2_bindings_execution_checklist.md)
 
 3. `M3: Playdate Build UX`
 - Improve command/template ergonomics around `callisto build` + `pdc`
@@ -85,8 +86,26 @@ Acceptance criteria:
 - New `playdate_auto_bootstrap` sample added with end-to-end auto-shim flow.
 - Tests added for CLI parsing and bootstrap emission behavior.
 
+## M2 Status (In Progress on Current Branch)
+
+`M2` progress on the current branch:
+- Added shared `playdate.input` module with button helpers.
+- Updated `playdate_bouncing_ball` to consume input bindings and exercise additional language features:
+  - sum types (`ControlMode`, `StepResult`)
+  - exhaustive `match`
+  - `impl` method (`Ball.moved`)
+  - record updates (`with`)
+  - manual shim preload of `playdate/input` for runtime wiring
+- Verified sample build smoke for:
+  - `make -C playdate_bouncing_ball build-lua`
+  - `make -C playdate_auto_bootstrap build-lua`
+
+Remaining `M2` actions:
+- Expand bindings for additional concrete SDK surfaces as needed by richer samples (sound/system/input variants).
+- Add sample-driven validation for each newly introduced binding surface.
+
 ## Immediate Next Tasks
 
-1. Expand shared binding coverage based on concrete sample needs (input/sound/system).
-2. Add one richer gameplay sample that uses the shared bindings package.
+1. Add the next binding expansion slice driven by a richer gameplay sample (sound/system/input variants).
+2. Add checks/tests that guard expected emission paths for newly added binding modules.
 3. Evaluate first-party Playdate build-template or command ergonomics for `M3`.
