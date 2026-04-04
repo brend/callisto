@@ -8,23 +8,25 @@ Current planning docs:
 - [`docs/v0_3_draft_plan.md`](docs/v0_3_draft_plan.md)
 - [`docs/v0_3_m1_playdate_execution_checklist.md`](docs/v0_3_m1_playdate_execution_checklist.md)
 - [`docs/v0_3_m2_bindings_execution_checklist.md`](docs/v0_3_m2_bindings_execution_checklist.md)
+- [`docs/v0_3_m3_playdate_product_execution_checklist.md`](docs/v0_3_m3_playdate_product_execution_checklist.md)
 
 ---
 
 ## Build Pipeline
 
 ```
-*.cal  →  callisto build  →  *.lua  →  pdc  →  MyGame.pdx  →  Simulator / Device
+*.cal  →  callisto build-playdate  →  *.lua + pdc  →  MyGame.pdx  →  Simulator / Device
 ```
 
 Concretely:
 ```sh
-callisto build src/main.cal -o Source/
-pdc Source/ MyGame.pdx
-open MyGame.pdx          # opens in Playdate Simulator
+callisto init --template playdate my-game
+cd my-game
+callisto build-playdate src/game.cal --config callisto.toml --pdx Game.pdx --run
 ```
 
-A `Makefile` is the right glue here — one `make run` target that chains all three steps.
+`build-playdate` is the first-party happy-path command. It emits Lua with bootstrap, runs `pdc`, and optionally opens the simulator.
+You can still use `callisto build` + `pdc` manually when you need more control.
 
 **Folder layout:**
 ```
@@ -131,11 +133,10 @@ fswatch -o src/ | xargs -n1 -I{} make build
 
 # In Makefile:
 build:
-    callisto build src/main.cal -o Source/ --playdate-bootstrap
-    pdc Source/ MyGame.pdx
+    callisto build-playdate src/game.cal --config callisto.toml --pdx Game.pdx
 
 run: build
-    open MyGame.pdx
+    callisto build-playdate src/game.cal --config callisto.toml --pdx Game.pdx --run
 ```
 
 The Playdate Simulator has a "Reload Game" hotkey (`⌘R`) — combine with fswatch for a near-instant feedback loop without leaving the simulator.
@@ -153,7 +154,7 @@ The Playdate Simulator has a "Reload Game" hotkey (`⌘R`) — combine with fswa
 1. **Expand SDK coverage** — Add shared bindings for the next concrete APIs needed by samples.
 2. **Richer sample game** — Build a larger game loop that drives binding gaps and ergonomics.
 3. **Bootstrap customization** — Extend `--playdate-bootstrap` with configurable update target and optional preload imports.
-4. **Playdate build UX** — Add first-party template/command ergonomics for `callisto build` + `pdc`.
+4. **Template hardening** — Add optional starter assets/workflow variants for first-party Playdate templates.
 
 ---
 

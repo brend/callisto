@@ -16,9 +16,13 @@ All notable changes to this project will be documented in this file.
 - Shared `playdate.system` binding helper module (crank-position wrappers).
 - `v0.3` `M2` binding-execution checklist.
 - Regression tests for emitted Lua paths in `playdate.input`, `playdate.audio`, and `playdate.system` bindings.
+- `callisto init --template playdate <dir>` to scaffold first-party Playdate project structure.
+- `callisto build-playdate <entry.cal>` command for one-step Lua emission + `pdc` packaging (+ optional `--run`).
+- `v0.3` `M3` Playdate product execution checklist.
 
 ### Changed
 - Playdate workflow docs and CLI cheat sheet now document bootstrap flow and shared binding module-root usage.
+- Playdate workflow docs now treat `build-playdate` as the first-party build path while keeping manual flow documented.
 - `playdate_bouncing_ball` now consumes shared bindings via `module_roots`.
 - `playdate_bouncing_ball` gameplay now exercises more language features (sum types, `match`, `impl`, and record updates).
 - `playdate_bouncing_ball` now includes sample-driven sound effects and a generic helper in gameplay flow.

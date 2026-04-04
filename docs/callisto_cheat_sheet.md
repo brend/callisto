@@ -8,6 +8,9 @@ Quick reference for day-to-day Callisto work.
 # Parse and print AST
 callisto parse path/to/main.cal
 
+# Scaffold a Playdate project
+callisto init --template playdate my-game
+
 # Typecheck only
 callisto check path/to/main.cal [--config path/to/callisto.toml] [--module-root path]...
 
@@ -16,6 +19,9 @@ callisto emit-lua path/to/main.cal [-o out.lua|out_dir] [--config path/to/callis
 
 # Alias of emit-lua
 callisto build path/to/main.cal [-o out.lua|out_dir] [--config path/to/callisto.toml] [--module-root path]... [--playdate-bootstrap]
+
+# One-command Playdate build (emit + pdc + optional simulator launch)
+callisto build-playdate path/to/game.cal [--source-dir Source] [--pdx Game.pdx] [--pdc pdc] [--run] [--config path/to/callisto.toml] [--module-root path]...
 ```
 
 Precedence:
@@ -23,6 +29,8 @@ Precedence:
 - `-o` overrides `out_dir`.
 - `--module-root` entries override `module_roots`.
 - `--playdate-bootstrap` writes a Playdate `main.lua` shim in output directories.
+- `build-playdate --source-dir` overrides output directory selection.
+- `build-playdate --pdx` overrides default bundle output path.
 
 ## `callisto.toml`
 

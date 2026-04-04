@@ -30,9 +30,11 @@ cargo build --release
 
 ```
 callisto parse    <file.cal>                  # Parse and dump the AST
+callisto init     --template playdate <dir>   # Scaffold a Playdate project
 callisto check    <file.cal> [--config path] [--module-root path]...
 callisto emit-lua <file.cal> [-o out.lua|dir] [--config path] [--module-root path]... [--playdate-bootstrap]
 callisto build    <file.cal> [-o out.lua|dir] [--config path] [--module-root path]... [--playdate-bootstrap]
+callisto build-playdate <file.cal> [--source-dir dir] [--pdx bundle.pdx] [--pdc exe] [--run] [--config path] [--module-root path]...
 ```
 
 Default output precedence:
@@ -40,6 +42,10 @@ Default output precedence:
 - If `-o` is not provided and config has `out_dir`, config `out_dir` is used.
 - Otherwise output defaults to `out/`.
 - `--playdate-bootstrap` (directory output only) also writes `main.lua` that imports the entry module and calls `update()`.
+
+Playdate-first workflow:
+- `callisto init --template playdate <dir>` scaffolds a project with `callisto.toml`, `src/game.cal`, and a Makefile.
+- `callisto build-playdate <entry.cal>` runs Lua emission with bootstrap + `pdc` in one command.
 
 ## Configuration (v0.2)
 

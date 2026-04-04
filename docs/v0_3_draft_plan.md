@@ -69,6 +69,7 @@ Acceptance criteria:
 3. `M3: Playdate Build UX`
 - Improve command/template ergonomics around `callisto build` + `pdc`
 - Document recommended project templates and workflows
+- Checklist: [`docs/v0_3_m3_playdate_product_execution_checklist.md`](docs/v0_3_m3_playdate_product_execution_checklist.md)
 
 4. `M4: Release Readiness`
 - Regression pass
@@ -108,8 +109,21 @@ Acceptance criteria:
   - `make -C playdate_bouncing_ball build-lua`
   - `make -C playdate_auto_bootstrap build-lua`
 
+## M3 Status (Implemented on Current Branch)
+
+`M3` progress on the current branch:
+- Added first-party Playdate template scaffolding command:
+  - `callisto init --template playdate <dir>`
+  - Generates `callisto.toml`, `src/game.cal`, `Source/`, `README.md`, and `Makefile`.
+- Added first-party Playdate build UX command:
+  - `callisto build-playdate <entry.cal> [--source-dir dir] [--pdx bundle.pdx] [--pdc exe] [--run]`
+  - Emits Lua with Playdate bootstrap, runs `pdc`, and can open simulator output with `--run`.
+- Added CLI parser tests for `init`/`build-playdate` flows and invalid template handling.
+- Added runtime tests for template creation behavior and `build-playdate` invocation with a fake `pdc`.
+- Updated docs (`README`, cheat sheet, workflow guide) to reflect the first-party Playdate flow.
+
 ## Immediate Next Tasks
 
-1. Start `M3` by defining a first-party Playdate project template/build UX workflow.
+1. Start `M4` release-readiness pass for `v0.3.0` (regression sweep + docs/changelog freeze).
 2. Add a richer gameplay sample or extend auto-bootstrap demo with multiple gameplay states.
-3. Continue sample-driven binding additions only as required by the `M3` workflow and new samples.
+3. Continue sample-driven binding additions only as required by richer samples.
