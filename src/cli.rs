@@ -181,6 +181,12 @@ fn usage() -> String {
   callisto emit-lua <input.cal> [-o out.lua|out_dir] [--config path] [--module-root path]...
   callisto build <input.cal> [-o out.lua|out_dir] [--config path] [--module-root path]...
 
+Examples:
+  callisto check src/main.cal --config callisto.toml
+  callisto check src/main.cal --module-root ../shared --module-root /opt/vendor
+  callisto emit-lua src/main.cal
+  callisto emit-lua src/main.cal -o build
+
 Precedence:
   CLI flags override config values.
   --config selects config source.

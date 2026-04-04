@@ -61,7 +61,7 @@ Resolution precedence:
 - Module roots: CLI `--module-root` entries (in order) override config `module_roots`; if neither is provided, the entry file directory root is used.
 - Output directory: `-o` overrides config `out_dir`; config `out_dir` overrides default `out`.
 
-## v0.1 Scope
+## v0.1 Scope (Baseline)
 
 Supported in `v0.1`:
 - Single-entry compilation with recursive module loading from the entry directory root (`foo.bar` -> `foo/bar.luna|.cal` or `foo/bar/mod.luna|.cal`).
@@ -70,7 +70,7 @@ Supported in `v0.1`:
 - Imports resolved via loaded modules or explicit `extern module` declarations.
 
 Known exclusions in `v0.1`:
-- No package/dependency manager or configurable import roots (module discovery is entry-root-relative only).
+- No package/dependency manager. Configurable import roots were introduced later in `v0.2 M1`.
 - No implicit import/extern fallback: unresolved imported members are hard type errors.
 - No nominal alias/newtype behavior (aliases are transparent in assignability/unification).
 

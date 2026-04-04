@@ -766,8 +766,8 @@ mod tests {
     use crate::{codegen_lua, config::ConfigSource, lexer, parser, resolve, typecheck};
 
     use super::{
-        ProjectOptions, compile_pipeline, compile_pipeline_with_options, emit_lua_command,
-        resolve_output_path, resolve_project_options,
+        ProjectOptions, check_command, compile_pipeline, compile_pipeline_with_options,
+        emit_lua_command, resolve_output_path, resolve_project_options,
     };
 
     #[test]
@@ -887,6 +887,59 @@ end
         assert!(compiled.is_none());
 
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn check_command_fails_with_missing_explicit_config_file() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_check_missing_cfg_{}", nonce));
+        std::fs::create_dir_all(&root).expect("failed to create temp dir");
+        let entry = root.join("main.luna");
+        std::fs::write(&entry, "fn main() -> Int do\n0\nend\n").expect("failed to write entry");
+        let missing = root.join("missing.toml");
+
+        assert_eq!(check_command(&entry, Some(&missing), &[]).unwrap_err(), 2);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn check_command_fails_with_invalid_discovered_config_toml() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_check_bad_toml_{}", nonce));
+        std::fs::create_dir_all(&root).expect("failed to create temp dir");
+        let entry = root.join("main.luna");
+        std::fs::write(&entry, "fn main() -> Int do\n0\nend\n").expect("failed to write entry");
+        std::fs::write(root.join("callisto.toml"), "module_roots = [\n")
+            .expect("failed to write config");
+
+        assert_eq!(check_command(&entry, None, &[]).unwrap_err(), 2);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn check_command_fails_with_invalid_discovered_config_field_values() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_check_bad_cfg_value_{}", nonce));
+        std::fs::create_dir_all(&root).expect("failed to create temp dir");
+        let entry = root.join("main.luna");
+        std::fs::write(&entry, "fn main() -> Int do\n0\nend\n").expect("failed to write entry");
+        std::fs::write(root.join("callisto.toml"), "module_roots = [\"\"]\n")
+            .expect("failed to write config");
+
+        assert_eq!(check_command(&entry, None, &[]).unwrap_err(), 2);
+
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]
@@ -1228,6 +1281,74 @@ end
     }
 
     #[test]
+    fn check_command_uses_config_module_root_order_deterministically() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_cfg_root_order_{}", nonce));
+        let entry_dir = root.join("entry");
+        let first_root = root.join("first");
+        let second_root = root.join("second");
+        std::fs::create_dir_all(first_root.join("lib")).expect("failed to create first root");
+        std::fs::create_dir_all(second_root.join("lib")).expect("failed to create second root");
+        std::fs::create_dir_all(&entry_dir).expect("failed to create entry dir");
+
+        std::fs::write(
+            first_root.join("lib").join("math.luna"),
+            r#"
+module lib.math
+
+pub fn add(a: Int, b: Int) -> Int do
+  true
+end
+"#,
+        )
+        .expect("failed to write first root module");
+        std::fs::write(
+            second_root.join("lib").join("math.luna"),
+            r#"
+module lib.math
+
+pub fn add(a: Int, b: Int) -> Int do
+  a + b
+end
+"#,
+        )
+        .expect("failed to write second root module");
+
+        let entry = entry_dir.join("main.luna");
+        std::fs::write(
+            &entry,
+            r#"
+module app
+import lib.math
+
+fn main() -> Int do
+  math.add(1, 2)
+end
+"#,
+        )
+        .expect("failed to write entry");
+
+        std::fs::write(
+            entry_dir.join("callisto.toml"),
+            "module_roots = [\"../first\", \"../second\"]\n",
+        )
+        .expect("failed to write config");
+        assert_eq!(check_command(&entry, None, &[]).unwrap_err(), 1);
+
+        std::fs::write(
+            entry_dir.join("callisto.toml"),
+            "module_roots = [\"../second\", \"../first\"]\n",
+        )
+        .expect("failed to rewrite config");
+        assert!(check_command(&entry, None, &[]).is_ok());
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn resolver_defaults_to_entry_directory_root_when_no_config_or_cli_roots() {
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -1394,6 +1515,112 @@ end
         emit_lua_command(&entry, Some(out_dir.as_path())).expect("emit failed");
         assert!(out_dir.join("app.lua").is_file());
         assert!(out_dir.join("lib").join("math.lua").is_file());
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn emit_lua_uses_config_out_dir_when_o_not_provided() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_emit_cfg_out_{}", nonce));
+        let src_dir = root.join("src");
+        let shared_dir = root.join("shared");
+        std::fs::create_dir_all(shared_dir.join("lib")).expect("failed to create shared dirs");
+        std::fs::create_dir_all(&src_dir).expect("failed to create src dir");
+
+        std::fs::write(
+            shared_dir.join("lib").join("math.luna"),
+            r#"
+module lib.math
+
+pub fn add(a: Int, b: Int) -> Int do
+  a + b
+end
+"#,
+        )
+        .expect("failed to write shared module");
+        let entry = src_dir.join("main.luna");
+        std::fs::write(
+            &entry,
+            r#"
+module app
+import lib.math
+
+pub fn main() -> Int do
+  math.add(1, 2)
+end
+"#,
+        )
+        .expect("failed to write entry");
+        std::fs::write(
+            src_dir.join("callisto.toml"),
+            "module_roots = [\"../shared\"]\nout_dir = \"cfg_build\"\n",
+        )
+        .expect("failed to write config");
+
+        emit_lua_command(&entry, None).expect("emit failed");
+        assert!(src_dir.join("cfg_build").join("app.lua").is_file());
+        assert!(
+            src_dir
+                .join("cfg_build")
+                .join("lib")
+                .join("math.lua")
+                .is_file()
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn emit_lua_o_flag_overrides_config_out_dir() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_emit_o_override_{}", nonce));
+        let src_dir = root.join("src");
+        let shared_dir = root.join("shared");
+        let explicit_out = root.join("explicit_out");
+        std::fs::create_dir_all(shared_dir.join("lib")).expect("failed to create shared dirs");
+        std::fs::create_dir_all(&src_dir).expect("failed to create src dir");
+
+        std::fs::write(
+            shared_dir.join("lib").join("math.luna"),
+            r#"
+module lib.math
+
+pub fn add(a: Int, b: Int) -> Int do
+  a + b
+end
+"#,
+        )
+        .expect("failed to write shared module");
+        let entry = src_dir.join("main.luna");
+        std::fs::write(
+            &entry,
+            r#"
+module app
+import lib.math
+
+pub fn main() -> Int do
+  math.add(1, 2)
+end
+"#,
+        )
+        .expect("failed to write entry");
+        std::fs::write(
+            src_dir.join("callisto.toml"),
+            "module_roots = [\"../shared\"]\nout_dir = \"cfg_build\"\n",
+        )
+        .expect("failed to write config");
+
+        emit_lua_command(&entry, Some(explicit_out.as_path())).expect("emit failed");
+        assert!(explicit_out.join("app.lua").is_file());
+        assert!(explicit_out.join("lib").join("math.lua").is_file());
+        assert!(!src_dir.join("cfg_build").join("app.lua").is_file());
 
         let _ = std::fs::remove_dir_all(root);
     }
