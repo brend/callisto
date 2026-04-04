@@ -47,6 +47,11 @@ Use this as the implementation board for post-`M1` Playdate product work.
 - [x] Keep workflow docs linked to active `v0.3` planning/checklist docs.
 - [x] Record M2 progress in `docs/v0_3_draft_plan.md`.
 
+### D) Regression Coverage
+
+- [x] Add emission regression tests for `playdate.input` Lua paths.
+- [x] Add emission regression tests for `playdate.audio` Lua paths.
+
 ## Definition of Done (M2)
 
 - [x] Shared bindings cover required surfaces for at least one richer gameplay sample.

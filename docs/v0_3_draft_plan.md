@@ -98,6 +98,9 @@ Acceptance criteria:
   - record updates (`with`)
   - generic helper (`unwrap_or[T]`) used in sound-effect dispatch
   - manual shim preload of `playdate/input` for runtime wiring
+- Added regression tests guarding emitted Lua paths for:
+  - `playdate.input` helpers
+  - `playdate.audio` wrappers
 - Verified sample build smoke for:
   - `make -C playdate_bouncing_ball build-lua`
   - `make -C playdate_auto_bootstrap build-lua`
@@ -108,6 +111,6 @@ Remaining `M2` actions:
 
 ## Immediate Next Tasks
 
-1. Add checks/tests that guard expected emission paths for newly added binding modules.
-2. Expand the next concrete bindings slice based on richer sample needs (system/timer APIs).
+1. Expand the next concrete bindings slice based on richer sample needs (system/timer APIs).
+2. Add a richer gameplay sample or extend auto-bootstrap demo with multiple gameplay states.
 3. Evaluate first-party Playdate build-template or command ergonomics for `M3`.

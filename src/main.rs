@@ -1896,6 +1896,96 @@ end
     }
 
     #[test]
+    fn emit_lua_playdate_input_binding_emits_button_paths() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_playdate_input_emit_{}", nonce));
+        let out_dir = root.join("out");
+        std::fs::create_dir_all(&root).expect("failed to create root");
+
+        let entry = root.join("main.cal");
+        std::fs::write(
+            &entry,
+            r#"
+module app
+
+import playdate.input
+
+pub fn poll() -> Bool do
+  input.a_pressed()
+end
+"#,
+        )
+        .expect("failed to write entry");
+
+        let bindings_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("playdate_bindings")
+            .join("src");
+        emit_lua_command_with_overrides(
+            &entry,
+            Some(out_dir.as_path()),
+            None,
+            std::slice::from_ref(&bindings_root),
+            false,
+        )
+        .expect("emit failed");
+
+        let input_lua = out_dir.join("playdate").join("input.lua");
+        let input_text = std::fs::read_to_string(&input_lua).expect("read input lua");
+        assert!(input_text.contains("playdate.buttonIsPressed"), "{input_text}");
+        assert!(input_text.contains("M.a_pressed = a_pressed"), "{input_text}");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn emit_lua_playdate_audio_binding_emits_playnote_paths() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_playdate_audio_emit_{}", nonce));
+        let out_dir = root.join("out");
+        std::fs::create_dir_all(&root).expect("failed to create root");
+
+        let entry = root.join("main.cal");
+        std::fs::write(
+            &entry,
+            r#"
+module app
+
+import playdate.audio
+
+pub fn cue() -> Unit do
+  audio.bounce_blip()
+end
+"#,
+        )
+        .expect("failed to write entry");
+
+        let bindings_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("playdate_bindings")
+            .join("src");
+        emit_lua_command_with_overrides(
+            &entry,
+            Some(out_dir.as_path()),
+            None,
+            std::slice::from_ref(&bindings_root),
+            false,
+        )
+        .expect("emit failed");
+
+        let audio_lua = out_dir.join("playdate").join("audio.lua");
+        let audio_text = std::fs::read_to_string(&audio_lua).expect("read audio lua");
+        assert!(audio_text.contains("playdate.sound.playNote"), "{audio_text}");
+        assert!(audio_text.contains("M.bounce_blip = bounce_blip"), "{audio_text}");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn nullary_constructor_pattern_is_not_lowered_as_bind() {
         let source = r#"
 type MaybeInt = | None | Some(Int)

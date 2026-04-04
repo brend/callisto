@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - Shared `playdate.input` binding helper module.
 - Shared `playdate.audio` binding helper module (sample-driven sound wrappers).
 - `v0.3` `M2` binding-execution checklist.
+- Regression tests for emitted Lua paths in `playdate.input` and `playdate.audio` bindings.
 
 ### Changed
 - Playdate workflow docs and CLI cheat sheet now document bootstrap flow and shared binding module-root usage.
