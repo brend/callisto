@@ -85,10 +85,18 @@ Playdate games work by assigning to `playdate.update`. You now have two options:
 1. **Auto shim:** `callisto build src/game.cal -o Source/ --playdate-bootstrap`
 2. **Manual shim:** keep a hand-written `Source/main.lua` file
 
-Auto shim writes `Source/main.lua` that imports the compiled entry module and calls `game.update()` every frame. It requires the entry module to export:
+Auto shim writes `Source/main.lua` that imports the compiled entry module and runs an explicit state loop each frame. It requires the entry module to export:
 
 ```callisto
-pub fn update() -> Unit do
+pub fn init() -> State do
+  State { ... }
+end
+
+pub fn update(state: State) -> State do
+  ...
+end
+
+pub fn render(state: State) -> Unit do
   ()
 end
 ```
@@ -97,8 +105,10 @@ Manual shim (same as before):
 
 ```lua
 local game = import "game"   -- loads game.lua emitted by Callisto
+local state = game.init()
 function playdate.update()
-  game.update()
+  state = game.update(state)
+  game.render(state)
 end
 ```
 

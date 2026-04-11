@@ -312,7 +312,8 @@ Precedence:
   --config selects config source.
   --module-root values override config module_roots.
   -o overrides config out_dir.
-  --playdate-bootstrap writes a Playdate `main.lua` shim in output directories."
+  --playdate-bootstrap writes a Playdate `main.lua` shim in output directories.
+  Bootstrap contract: `pub fn init() -> S`, `pub fn update(state: S) -> S`, `pub fn render(state: S) -> Unit`."
         .to_string()
 }
 

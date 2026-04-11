@@ -11,7 +11,7 @@ It also displays crank direction and crank-side labels every frame.
 
 ## Layout
 
-- `src/game.cal`: entry module with `pub fn update() -> Unit`
+- `src/game.cal`: entry module with `pub fn init() -> State`, `pub fn update(state: State) -> State`, `pub fn render(state: State) -> Unit`
 - `../playdate_bindings/src/playdate/*.cal`: shared Playdate extern bindings
 - `Source/main.lua`: generated Playdate bootstrap shim
 - `Source/game.lua`: generated gameplay module

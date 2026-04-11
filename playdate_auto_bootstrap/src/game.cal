@@ -90,15 +90,21 @@ fn scene_hint(scene: Scene) -> String do
   end
 end
 
-fn build_view() -> ViewModel do
-  let base = ViewModel { scene = Splash, direction = Still, side = Left }
+fn build_view(base: ViewModel) -> ViewModel do
   let with_scene = base with { scene = read_scene() }
   let with_direction = with_scene with { direction = read_direction(playdate.getCrankChange()) }
   with_direction with { side = read_side(playdate.getCrankPosition()) }
 end
 
-pub fn update() -> Unit do
-  let model = build_view()
+pub fn init() -> ViewModel do
+  ViewModel { scene = Splash, direction = Still, side = Left }
+end
+
+pub fn update(state: ViewModel) -> ViewModel do
+  build_view(state)
+end
+
+pub fn render(model: ViewModel) -> Unit do
   graphics.clear()
   graphics.drawText("Callisto + Playdate", 20, 30)
   graphics.drawText("Auto bootstrap state demo", 20, 50)

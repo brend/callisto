@@ -222,9 +222,22 @@ fn init_playdate_template_command(dir: &Path) -> Result<(), i32> {
 
 import playdate.graphics
 
-pub fn update() -> Unit do
+type State {
+  frame: Int
+}
+
+pub fn init() -> State do
+  State { frame = 0 }
+end
+
+pub fn update(state: State) -> State do
+  state with { frame = state.frame + 1 }
+end
+
+pub fn render(state: State) -> Unit do
   graphics.clear()
   graphics.drawText("Hello from Callisto", 20, 40)
+  state.frame
   ()
 end
 "#;
@@ -940,23 +953,15 @@ fn write_playdate_bootstrap(
         return Err(1);
     }
 
-    let has_update = entry.resolved.func_infos.iter().any(|info| {
-        matches!(info.vis, ast::Visibility::Public)
-            && matches!(info.kind, types::FuncKind::Normal)
-            && info.name == "update"
-            && info.params.is_empty()
-            && matches!(info.ret, types::Type::Unit)
-    });
-    if !has_update {
-        let module_name = if entry.parsed.module_path.is_empty() {
-            "<entry>".to_string()
-        } else {
-            entry.parsed.module_path.join(".")
-        };
+    if let Err(problems) = validate_playdate_bootstrap_contract(entry) {
+        let module_name = entry_module_name(entry);
         eprintln!(
-            "--playdate-bootstrap requires entry module '{}' to export `pub fn update() -> Unit`",
+            "--playdate-bootstrap requires entry module '{}' to export:\n  pub fn init() -> S\n  pub fn update(state: S) -> S\n  pub fn render(state: S) -> Unit",
             module_name
         );
+        for problem in problems {
+            eprintln!("  - {}", problem);
+        }
         return Err(1);
     }
 
@@ -973,12 +978,106 @@ fn write_playdate_bootstrap(
         .to_string();
 
     let lua = format!(
-        "local game = import \"{}\"\n\nfunction playdate.update()\n    game.update()\nend\n",
+        "local game = import \"{}\"\nlocal __state = game.init()\n\nfunction playdate.update()\n    __state = game.update(__state)\n    game.render(__state)\nend\n",
         import_path
     );
     write_lua_file(&main_path, &lua)?;
     println!("wrote {}", main_path.display());
     Ok(())
+}
+
+fn find_public_normal_func<'a>(
+    entry: &'a CompiledModule,
+    name: &str,
+) -> Option<&'a types::FuncInfo> {
+    entry.resolved.func_infos.iter().find(|info| {
+        matches!(info.vis, ast::Visibility::Public)
+            && matches!(info.kind, types::FuncKind::Normal)
+            && info.name == name
+    })
+}
+
+fn validate_playdate_bootstrap_contract(entry: &CompiledModule) -> Result<(), Vec<String>> {
+    let mut problems = Vec::new();
+
+    let init = find_public_normal_func(entry, "init");
+    let update = find_public_normal_func(entry, "update");
+    let render = find_public_normal_func(entry, "render");
+
+    if init.is_none() {
+        problems.push("missing `pub fn init() -> S`".to_string());
+    }
+    if update.is_none() {
+        problems.push("missing `pub fn update(state: S) -> S`".to_string());
+    }
+    if render.is_none() {
+        problems.push("missing `pub fn render(state: S) -> Unit`".to_string());
+    }
+
+    let Some(init) = init else {
+        return Err(problems);
+    };
+    let Some(update) = update else {
+        return Err(problems);
+    };
+    let Some(render) = render else {
+        return Err(problems);
+    };
+
+    if !init.params.is_empty() {
+        problems.push(format!(
+            "`init` must have zero parameters, found {}",
+            init.params.len()
+        ));
+    }
+    let state_ty = init.ret.clone();
+
+    if update.params.len() != 1 {
+        problems.push(format!(
+            "`update` must take exactly one state parameter, found {}",
+            update.params.len()
+        ));
+    } else if update.params[0] != state_ty {
+        problems.push(format!(
+            "`update` parameter type {:?} does not match init state type {:?}",
+            update.params[0], state_ty
+        ));
+    }
+    if update.ret != state_ty {
+        problems.push(format!(
+            "`update` return type {:?} does not match init state type {:?}",
+            update.ret, state_ty
+        ));
+    }
+
+    if render.params.len() != 1 {
+        problems.push(format!(
+            "`render` must take exactly one state parameter, found {}",
+            render.params.len()
+        ));
+    } else if render.params[0] != state_ty {
+        problems.push(format!(
+            "`render` parameter type {:?} does not match init state type {:?}",
+            render.params[0], state_ty
+        ));
+    }
+    if render.ret != types::Type::Unit {
+        problems.push(format!("`render` must return Unit, found {:?}", render.ret));
+    }
+
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        Err(problems)
+    }
+}
+
+fn entry_module_name(entry: &CompiledModule) -> String {
+    if entry.parsed.module_path.is_empty() {
+        "<entry>".to_string()
+    } else {
+        entry.parsed.module_path.join(".")
+    }
 }
 
 fn write_lua_file(path: &Path, lua: &str) -> Result<(), i32> {
@@ -2136,7 +2235,16 @@ end
             r#"
 module app.game
 
-pub fn update() -> Unit do
+pub fn init() -> Int do
+  0
+end
+
+pub fn update(state: Int) -> Int do
+  state + 1
+end
+
+pub fn render(state: Int) -> Unit do
+  state
   ()
 end
 "#,
@@ -2155,7 +2263,15 @@ end
             shim_text.contains("local game = import \"app/game\""),
             "{shim_text}"
         );
-        assert!(shim_text.contains("game.update()"), "{shim_text}");
+        assert!(
+            shim_text.contains("local __state = game.init()"),
+            "{shim_text}"
+        );
+        assert!(
+            shim_text.contains("__state = game.update(__state)"),
+            "{shim_text}"
+        );
+        assert!(shim_text.contains("game.render(__state)"), "{shim_text}");
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -2179,8 +2295,21 @@ module game
 
 import playdate.graphics
 
-pub fn update() -> Unit do
+type State {
+  frames: Int
+}
+
+pub fn init() -> State do
+  State { frames = 0 }
+end
+
+pub fn update(state: State) -> State do
+  state with { frames = state.frames + 1 }
+end
+
+pub fn render(state: State) -> Unit do
   graphics.clear()
+  state.frames
   ()
 end
 "#,
@@ -2225,7 +2354,7 @@ end
     }
 
     #[test]
-    fn emit_lua_playdate_bootstrap_requires_public_zero_arg_update() {
+    fn emit_lua_playdate_bootstrap_requires_stateful_contract() {
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("time went backwards")
@@ -2242,6 +2371,90 @@ end
 module app.game
 
 pub fn tick() -> Unit do
+  ()
+end
+"#,
+        )
+        .expect("failed to write entry");
+
+        let result =
+            emit_lua_command_with_overrides(&entry, Some(out_dir.as_path()), None, &[], true);
+        assert_eq!(result.unwrap_err(), 1);
+        assert!(!out_dir.join("main.lua").is_file());
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn emit_lua_playdate_bootstrap_rejects_update_with_wrong_arity() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root =
+            std::env::temp_dir().join(format!("callisto_playdate_bootstrap_wrong_arity_{}", nonce));
+        let out_dir = root.join("out");
+        std::fs::create_dir_all(&root).expect("failed to create root");
+
+        let entry = root.join("game.cal");
+        std::fs::write(
+            &entry,
+            r#"
+module app.game
+
+pub fn init() -> Int do
+  0
+end
+
+pub fn update() -> Int do
+  1
+end
+
+pub fn render(state: Int) -> Unit do
+  state
+  ()
+end
+"#,
+        )
+        .expect("failed to write entry");
+
+        let result =
+            emit_lua_command_with_overrides(&entry, Some(out_dir.as_path()), None, &[], true);
+        assert_eq!(result.unwrap_err(), 1);
+        assert!(!out_dir.join("main.lua").is_file());
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn emit_lua_playdate_bootstrap_rejects_state_type_mismatch() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "callisto_playdate_bootstrap_state_mismatch_{}",
+            nonce
+        ));
+        let out_dir = root.join("out");
+        std::fs::create_dir_all(&root).expect("failed to create root");
+
+        let entry = root.join("game.cal");
+        std::fs::write(
+            &entry,
+            r#"
+module app.game
+
+pub fn init() -> Int do
+  0
+end
+
+pub fn update(state: Int) -> Int do
+  state + 1
+end
+
+pub fn render(state: Float) -> Unit do
+  state
   ()
 end
 "#,

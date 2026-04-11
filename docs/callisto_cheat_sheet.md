@@ -29,6 +29,7 @@ Precedence:
 - `-o` overrides `out_dir`.
 - `--module-root` entries override `module_roots`.
 - `--playdate-bootstrap` writes a Playdate `main.lua` shim in output directories.
+- Bootstrap requires entry exports: `pub fn init() -> S`, `pub fn update(state: S) -> S`, `pub fn render(state: S) -> Unit`.
 - `build-playdate --source-dir` overrides output directory selection.
 - `build-playdate --pdx` overrides default bundle output path.
 

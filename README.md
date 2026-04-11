@@ -41,7 +41,7 @@ Default output precedence:
 - `-o` flag overrides everything.
 - If `-o` is not provided and config has `out_dir`, config `out_dir` is used.
 - Otherwise output defaults to `out/`.
-- `--playdate-bootstrap` (directory output only) also writes `main.lua` that imports the entry module and calls `update()`.
+- `--playdate-bootstrap` (directory output only) writes `main.lua` that imports the entry module, initializes state, then calls `update(state)` and `render(state)` every frame.
 
 Playdate-first workflow:
 - `callisto init --template playdate <dir>` scaffolds a project with `callisto.toml`, `src/game.cal`, and a Makefile.
