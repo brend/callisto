@@ -1,0 +1,89 @@
+[
+  {
+    "name": "module path capture",
+    "scope": "meta.path.module.callisto",
+    "sample": "module demo.main",
+    "captures": {
+      "1": "module",
+      "2": "demo.main"
+    }
+  },
+  {
+    "name": "function declaration capture",
+    "scope": "meta.declaration.function.callisto",
+    "sample": "fn area(v: Vec2) -> Float do",
+    "captures": {
+      "1": "fn",
+      "2": "area"
+    }
+  },
+  {
+    "name": "type declaration capture",
+    "scope": "meta.declaration.type.callisto",
+    "sample": "type Vec2 { x: Float, y: Float }",
+    "captures": {
+      "1": "type",
+      "2": "Vec2"
+    }
+  },
+  {
+    "name": "local let binding capture",
+    "scope": "meta.binding.local.callisto",
+    "sample": "let x_coord: Float = v.x",
+    "captures": {
+      "1": "let",
+      "2": "x_coord"
+    }
+  },
+  {
+    "name": "local var binding capture",
+    "scope": "meta.binding.local.callisto",
+    "sample": "var acc: Float = 0",
+    "captures": {
+      "1": "var",
+      "2": "acc"
+    }
+  },
+  {
+    "name": "parameter declaration capture",
+    "scope": "meta.parameter.declaration.callisto",
+    "sample": "fn area(v: Vec2) -> Float do",
+    "captures": {
+      "1": "v",
+      "2": ":"
+    }
+  },
+  {
+    "name": "local assignment capture",
+    "scope": "meta.assignment.local.callisto",
+    "sample": "acc = acc + length(v)",
+    "captures": {
+      "1": "acc",
+      "2": "="
+    }
+  },
+  {
+    "name": "function call capture",
+    "scope": "meta.function.call.callisto",
+    "sample": "acc = acc + length(v)",
+    "captures": {
+      "1": "length"
+    }
+  },
+  {
+    "name": "method call capture",
+    "scope": "meta.method.call.callisto",
+    "sample": "v.normalize()",
+    "captures": {
+      "1": "normalize"
+    }
+  },
+  {
+    "name": "field access capture",
+    "scope": "meta.field.access.callisto",
+    "sample": "let x_coord: Float = v.x",
+    "captures": {
+      "1": "x"
+    }
+  }
+]

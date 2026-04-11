@@ -251,6 +251,14 @@ import other.module { foo, bar }
 
 For a compact CLI + syntax reference, see [`docs/callisto_cheat_sheet.md`](docs/callisto_cheat_sheet.md).
 
+## VS Code
+
+Syntax highlighting extension source lives in:
+
+- `editors/vscode/callisto-syntax`
+
+It currently provides TextMate-based highlighting for `.cal` and `.luna` files.
+
 ## Development
 
 ```sh

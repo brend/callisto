@@ -1,0 +1,12 @@
+module demo.main
+import math.vec2
+
+type Vec2 { x: Float, y: Float }
+
+fn area(v: Vec2) -> Float do
+  let x_coord: Float = v.x
+  var acc: Float = 0
+  acc = acc + length(v)
+  v.normalize()
+  acc
+end

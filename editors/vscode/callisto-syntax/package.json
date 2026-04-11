@@ -1,0 +1,41 @@
+{
+  "name": "callisto-syntax",
+  "displayName": "Callisto Language Support",
+  "description": "Syntax highlighting for Callisto (.cal, .luna).",
+  "version": "0.0.1",
+  "publisher": "callisto-lang",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "scripts": {
+    "test": "node ./tests/run-regression.mjs"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "callisto",
+        "aliases": [
+          "Callisto",
+          "callisto",
+          "luna"
+        ],
+        "extensions": [
+          ".cal",
+          ".luna"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "callisto",
+        "scopeName": "source.callisto",
+        "path": "./syntaxes/callisto.tmLanguage.json"
+      }
+    ]
+  }
+}
