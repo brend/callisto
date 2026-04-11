@@ -271,12 +271,13 @@ mod tests {
         fs::write(&entry, "fn main() -> Int do 0 end\n").expect("write entry");
 
         let absolute_dep = normalize(&root.join("dep"));
+        let absolute_dep_escaped = absolute_dep.to_string_lossy().replace('\\', "\\\\");
         let config_path = src_dir.join("callisto.toml");
         fs::write(
             &config_path,
             format!(
                 "module_roots = [\"../lib\", \"{}\"]\nout_dir = \"build\"\npackage = \"demo.pkg\"\n",
-                absolute_dep.display()
+                absolute_dep_escaped
             ),
         )
         .expect("write config");

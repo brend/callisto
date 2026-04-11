@@ -1238,6 +1238,10 @@ mod tests {
         diagnostics.render(&db)
     }
 
+    fn normalize_line_endings(text: &str) -> String {
+        text.replace("\r\n", "\n")
+    }
+
     fn assert_diagnostics_golden(name: &str, file_name: &str, source: &str) {
         let actual = render_diagnostics_for_source(file_name, source);
         let golden_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -1259,10 +1263,12 @@ mod tests {
                 golden_path.display()
             )
         });
+        let actual_normalized = normalize_line_endings(&actual);
+        let expected_normalized = normalize_line_endings(&expected);
 
         assert_eq!(
-            actual,
-            expected,
+            actual_normalized,
+            expected_normalized,
             "diagnostics golden '{}' mismatch",
             golden_path.display()
         );
@@ -1308,10 +1314,12 @@ mod tests {
                 golden_path.display()
             )
         });
+        let actual_normalized = normalize_line_endings(&actual);
+        let expected_normalized = normalize_line_endings(&expected);
 
         assert_eq!(
-            actual,
-            expected,
+            actual_normalized,
+            expected_normalized,
             "lua golden '{}' mismatch",
             golden_path.display()
         );
@@ -2316,12 +2324,18 @@ end
         )
         .expect("write entry");
 
-        let pdc_script = root.join("fake-pdc.sh");
-        std::fs::write(
-            &pdc_script,
-            "#!/bin/sh\nsrc=\"$1\"\nout=\"$2\"\n[ -d \"$src\" ] || exit 9\ntouch \"$out\"\n",
-        )
-        .expect("write script");
+        let (pdc_script, pdc_script_contents) = if cfg!(windows) {
+            (
+                root.join("fake-pdc.cmd"),
+                "@echo off\r\nif not exist \"%~1\" exit /b 9\r\ntype nul > \"%~2\"\r\n",
+            )
+        } else {
+            (
+                root.join("fake-pdc.sh"),
+                "#!/bin/sh\nsrc=\"$1\"\nout=\"$2\"\n[ -d \"$src\" ] || exit 9\ntouch \"$out\"\n",
+            )
+        };
+        std::fs::write(&pdc_script, pdc_script_contents).expect("write script");
         #[cfg(unix)]
         {
             let perms = std::fs::Permissions::from_mode(0o755);
