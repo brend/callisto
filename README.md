@@ -22,8 +22,8 @@ Requires [Rust](https://rustup.rs/) (edition 2024).
 ```sh
 git clone <repo>
 cd callisto
-cargo build --release
-# binary: target/release/callisto
+cargo install --path . --locked
+# binary: ~/.cargo/bin/callisto
 ```
 
 ## Usage

@@ -32,6 +32,36 @@ const DIAG_RES_IMPORT_MODULE_NOT_FOUND: &str = "CAL-RES-010";
 const DIAG_RES_MODULE_READ_FAILED: &str = "CAL-RES-013";
 const DIAG_RES_MODULE_DECL_MISMATCH: &str = "CAL-RES-014";
 const DIAG_RES_DUPLICATE_MODULE_DEF: &str = "CAL-RES-015";
+const PLAYDATE_TEMPLATE_BINDINGS: &[(&str, &str)] = &[
+    (
+        "bindings/playdate.cal",
+        include_str!("../playdate_bindings/src/playdate.cal"),
+    ),
+    (
+        "bindings/playdate/graphics.cal",
+        include_str!("../playdate_bindings/src/playdate/graphics.cal"),
+    ),
+    (
+        "bindings/playdate/graphics/sprite.cal",
+        include_str!("../playdate_bindings/src/playdate/graphics/sprite.cal"),
+    ),
+    (
+        "bindings/playdate/input.cal",
+        include_str!("../playdate_bindings/src/playdate/input.cal"),
+    ),
+    (
+        "bindings/playdate/audio.cal",
+        include_str!("../playdate_bindings/src/playdate/audio.cal"),
+    ),
+    (
+        "bindings/playdate/system.cal",
+        include_str!("../playdate_bindings/src/playdate/system.cal"),
+    ),
+    (
+        "bindings/playdate/timer.cal",
+        include_str!("../playdate_bindings/src/playdate/timer.cal"),
+    ),
+];
 
 fn main() {
     match run() {
@@ -185,7 +215,7 @@ fn init_playdate_template_command(dir: &Path) -> Result<(), i32> {
     let package_name = format!("playdate.{}", package_suffix);
 
     let callisto_toml = format!(
-        "out_dir = \"Source\"\nmodule_roots = [\"src\", \"../playdate_bindings/src\"]\npackage = \"{}\"\n",
+        "out_dir = \"Source\"\nmodule_roots = [\"src\", \"bindings\"]\npackage = \"{}\"\n",
         package_name
     );
     let game_cal = r#"module game
@@ -208,6 +238,9 @@ end
     write_project_file(src_dir.join("game.cal"), game_cal)?;
     write_project_file(root.join("README.md"), &readme)?;
     write_project_file(root.join("Makefile"), makefile)?;
+    for (rel_path, contents) in PLAYDATE_TEMPLATE_BINDINGS {
+        write_project_file(root.join(rel_path), contents)?;
+    }
 
     println!("initialized playdate template at {}", root.display());
     Ok(())
@@ -967,6 +1000,16 @@ fn write_lua_file(path: &Path, lua: &str) -> Result<(), i32> {
 }
 
 fn write_project_file(path: PathBuf, contents: &str) -> Result<(), i32> {
+    if let Some(parent) = path.parent() {
+        if let Err(err) = std::fs::create_dir_all(parent) {
+            eprintln!(
+                "failed to create project directory '{}': {}",
+                parent.display(),
+                err
+            );
+            return Err(1);
+        }
+    }
     if let Err(err) = std::fs::write(&path, contents) {
         eprintln!("failed to write '{}': {}", path.display(), err);
         return Err(1);
@@ -1291,9 +1334,20 @@ end
         assert!(root.join("README.md").is_file());
         assert!(root.join("Makefile").is_file());
         assert!(root.join("src").join("game.cal").is_file());
+        assert!(root.join("bindings").join("playdate.cal").is_file());
+        assert!(
+            root.join("bindings")
+                .join("playdate")
+                .join("graphics.cal")
+                .is_file()
+        );
         let config = fs::read_to_string(root.join("callisto.toml")).expect("read config");
         assert!(config.contains("module_roots"), "{config}");
-        assert!(config.contains("../playdate_bindings/src"), "{config}");
+        assert!(config.contains("\"bindings\""), "{config}");
+        assert!(!config.contains("../playdate_bindings/src"), "{config}");
+
+        let entry = root.join("src").join("game.cal");
+        check_command(&entry, Some(&root.join("callisto.toml")), &[]).expect("check scaffold");
 
         let _ = std::fs::remove_dir_all(root);
     }
