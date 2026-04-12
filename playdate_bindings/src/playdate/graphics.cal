@@ -4,3 +4,5 @@ pub extern fn clear() -> Unit
 pub extern fn drawText(text: String, x: Int, y: Int) -> Unit
 pub extern fn setColor(color: Int) -> Unit
 pub extern fn drawLine(x1: Int, y1: Int, x2: Int, y2: Int) -> Unit
+pub extern fn drawRect(x: Int, y: Int, width: Int, height: Int) -> Unit
+pub extern fn fillRect(x: Int, y: Int, width: Int, height: Int) -> Unit

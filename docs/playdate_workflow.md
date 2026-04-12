@@ -169,7 +169,7 @@ The Playdate Simulator has a "Reload Game" hotkey (`⌘R`) — combine with fswa
 - `playdate_bouncing_ball/`: manual `Source/main.lua` shim pattern (state owned by Lua).
   Uses records, `impl` methods, sum types, generics, and `match` in gameplay logic.
 - `playdate_auto_bootstrap/`: auto-shim pattern using `--playdate-bootstrap`.
-  Includes explicit-transition scene navigation (`A` next, `B` previous), persisted session counters, crank telemetry labels, and graphics line overlays driven by shared `playdate.graphics.drawLine` bindings.
+  Includes explicit-transition scene navigation (`A` next, `B` previous), persisted mission-loop counters/resources (`score`, `combo`, `laps`, `energy`, `heat`), crank telemetry labels, `playdate.timer.updateTimers()` usage, and graphics overlays driven by shared `playdate.graphics.drawLine/drawRect/fillRect` bindings.
 
 ## What to Build Next (Priority Order)
 

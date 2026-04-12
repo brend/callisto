@@ -2975,7 +2975,7 @@ end
     }
 
     #[test]
-    fn emit_lua_playdate_graphics_binding_emits_drawline_paths() {
+    fn emit_lua_playdate_graphics_binding_emits_shape_paths() {
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("time went backwards")
@@ -2994,6 +2994,8 @@ import playdate.graphics
 
 pub fn render() -> Unit do
   graphics.drawLine(10, 20, 30, 40)
+  graphics.drawRect(12, 22, 40, 12)
+  graphics.fillRect(14, 24, 36, 8)
   ()
 end
 "#,
@@ -3016,6 +3018,14 @@ end
         let game_text = std::fs::read_to_string(&game_lua).expect("read game lua");
         assert!(
             game_text.contains("playdate.graphics.drawLine(10, 20, 30, 40)"),
+            "{game_text}"
+        );
+        assert!(
+            game_text.contains("playdate.graphics.drawRect(12, 22, 40, 12)"),
+            "{game_text}"
+        );
+        assert!(
+            game_text.contains("playdate.graphics.fillRect(14, 24, 36, 8)"),
             "{game_text}"
         );
         assert!(game_text.contains("M.render = render"), "{game_text}");
@@ -3121,6 +3131,54 @@ end
             system_text.contains("M.crank_is_right_half = crank_is_right_half"),
             "{system_text}"
         );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn emit_lua_playdate_timer_binding_emits_update_timers_paths() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_playdate_timer_emit_{}", nonce));
+        let out_dir = root.join("out");
+        std::fs::create_dir_all(&root).expect("failed to create root");
+
+        let entry = root.join("main.cal");
+        std::fs::write(
+            &entry,
+            r#"
+module app
+
+import playdate.timer
+
+pub fn tick() -> Unit do
+  timer.updateTimers()
+end
+"#,
+        )
+        .expect("failed to write entry");
+
+        let bindings_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("playdate_bindings")
+            .join("src");
+        emit_lua_command_with_overrides(
+            &entry,
+            Some(out_dir.as_path()),
+            None,
+            std::slice::from_ref(&bindings_root),
+            false,
+        )
+        .expect("emit failed");
+
+        let game_lua = out_dir.join("app.lua");
+        let timer_text = std::fs::read_to_string(&game_lua).expect("read game lua");
+        assert!(
+            timer_text.contains("playdate.timer.updateTimers()"),
+            "{timer_text}"
+        );
+        assert!(timer_text.contains("M.tick = tick"), "{timer_text}");
 
         let _ = std::fs::remove_dir_all(root);
     }

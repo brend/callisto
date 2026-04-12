@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - Shared `playdate.graphics` bindings now include `drawLine(x1, y1, x2, y2)`.
+- Shared `playdate.graphics` bindings now include shape primitives `drawRect(x, y, width, height)` and `fillRect(x, y, width, height)`.
+- Richer sample flow now explicitly exercises shared `playdate.timer.updateTimers()` usage in update loops.
 - Playdate bootstrap customization flags:
   - `--playdate-bootstrap-target <lua.path>`
   - `--playdate-bootstrap-preload <module/path|lua.path=module/path>` (repeatable)
@@ -14,7 +16,7 @@ All notable changes to this project will be documented in this file.
   - `--starter-assets` for starter `Source/images`, `Source/sounds`, and `Source/fonts` folders.
 
 ### Changed
-- `playdate_auto_bootstrap` now renders line-based HUD overlays (scene divider, crank direction pointer, and session pulse/progress bar) using the shared graphics bindings.
+- `playdate_auto_bootstrap` now runs a richer mission-style loop with persisted resources/progression (`energy`, `heat`, `score`, `combo`, `laps`) and renders HUD overlays/gauges using shared graphics bindings (`drawLine`, `drawRect`, `fillRect`).
 - Generated Playdate bootstrap `main.lua` can now emit optional preload imports/assignments before entry import and assign update logic to a custom target (default remains `playdate.update`).
 - `callisto init --template playdate` now generates workflow-specific Makefiles/READMEs and can emit a manual `Source/main.lua` shim template.
 

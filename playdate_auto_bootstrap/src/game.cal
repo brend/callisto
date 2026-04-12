@@ -2,20 +2,28 @@ module game
 
 import playdate
 import playdate.graphics
+import playdate.timer
 
 type Scene = | Splash | Pilot | Telemetry
 type SceneTransition = | Stayed | Advanced | Rewound
 type CrankDirection = | Clockwise | CounterClockwise | Still
 type CrankSide = | Left | Right
+type AlertLevel = | Nominal | Heating | Overdrive
 
 type ViewModel {
   scene: Scene,
   direction: CrankDirection,
   side: CrankSide,
+  alert: AlertLevel,
   ticks: Int,
   scene_changes: Int,
   pilot_frames: Int,
   telemetry_frames: Int,
+  score: Int,
+  combo: Int,
+  laps: Int,
+  energy: Int,
+  heat: Int,
   last_transition: SceneTransition
 }
 
@@ -23,8 +31,8 @@ impl ViewModel do
   fn heading(self: ViewModel) -> String do
     match self.scene do
       case Splash => "A/B press to navigate scenes"
-      case Pilot => "Pilot: crank to steer"
-      case Telemetry => "Telemetry: inspect session stats"
+      case Pilot => "Pilot mission: keep combo while managing heat"
+      case Telemetry => "Telemetry: monitor system recovery"
     end
   end
 end
@@ -35,6 +43,40 @@ end
 
 fn k_button_a() -> Int do
   32
+end
+
+fn clamp(v: Int, lo: Int, hi: Int) -> Int do
+  if v < lo then
+    lo
+  elseif v > hi then
+    hi
+  else
+    v
+  end
+end
+
+fn is_pilot(scene: Scene) -> Bool do
+  match scene do
+    case Pilot => true
+    case Splash => false
+    case Telemetry => false
+  end
+end
+
+fn is_telemetry(scene: Scene) -> Bool do
+  match scene do
+    case Telemetry => true
+    case Splash => false
+    case Pilot => false
+  end
+end
+
+fn is_moving(direction: CrankDirection) -> Bool do
+  match direction do
+    case Clockwise => true
+    case CounterClockwise => true
+    case Still => false
+  end
 end
 
 fn read_transition() -> SceneTransition do
@@ -147,8 +189,8 @@ end
 fn scene_hint(scene: Scene) -> String do
   match scene do
     case Splash => "Press A: next scene, B: previous scene"
-    case Pilot => "Scene persists until next A/B press"
-    case Telemetry => "Tracks pilot/telemetry engagement over time"
+    case Pilot => "Spin crank for score, combo, and lap progress"
+    case Telemetry => "Cooling mode restores energy and lowers heat"
   end
 end
 
@@ -172,11 +214,127 @@ fn engagement_label(pilot_frames: Int, telemetry_frames: Int) -> String do
   end
 end
 
-fn pulse_label(ticks: Int) -> String do
-  if ticks % 120 < 60 then
-    "Pulse: high"
+fn energy_delta(scene: Scene, direction: CrankDirection) -> Int do
+  if is_pilot(scene) then
+    if is_moving(direction) then
+      0 - 2
+    else
+      0 - 1
+    end
+  elseif is_telemetry(scene) then
+    2
   else
-    "Pulse: low"
+    1
+  end
+end
+
+fn heat_delta(scene: Scene, direction: CrankDirection) -> Int do
+  if is_pilot(scene) then
+    match direction do
+      case Clockwise => 2
+      case CounterClockwise => 3
+      case Still => 1
+    end
+  elseif is_telemetry(scene) then
+    0 - 3
+  else
+    0 - 1
+  end
+end
+
+fn next_combo(scene: Scene, direction: CrankDirection, combo: Int) -> Int do
+  if is_pilot(scene) and is_moving(direction) then
+    clamp(combo + 1, 0, 9)
+  else
+    0
+  end
+end
+
+fn score_delta(scene: Scene, direction: CrankDirection, combo: Int) -> Int do
+  if is_pilot(scene) and is_moving(direction) then
+    1 + combo
+  else
+    0
+  end
+end
+
+fn lap_delta(scene: Scene, direction: CrankDirection, ticks: Int) -> Int do
+  if is_pilot(scene) and is_moving(direction) and ticks % 180 == 0 then
+    1
+  else
+    0
+  end
+end
+
+fn alert_from_heat(heat: Int) -> AlertLevel do
+  if heat >= 75 then
+    Overdrive
+  elseif heat >= 40 then
+    Heating
+  else
+    Nominal
+  end
+end
+
+fn alert_label(alert: AlertLevel) -> String do
+  match alert do
+    case Nominal => "Alert: nominal"
+    case Heating => "Alert: heating"
+    case Overdrive => "Alert: overdrive"
+  end
+end
+
+fn energy_label(energy: Int) -> String do
+  if energy > 75 then
+    "Energy: high"
+  elseif energy > 40 then
+    "Energy: stable"
+  elseif energy > 15 then
+    "Energy: low"
+  else
+    "Energy: critical"
+  end
+end
+
+fn heat_label(heat: Int) -> String do
+  if heat < 30 then
+    "Heat: cool"
+  elseif heat < 70 then
+    "Heat: elevated"
+  else
+    "Heat: dangerous"
+  end
+end
+
+fn score_label(score: Int) -> String do
+  if score < 40 then
+    "Score tier: rookie"
+  elseif score < 120 then
+    "Score tier: pilot"
+  else
+    "Score tier: ace"
+  end
+end
+
+fn combo_label(combo: Int) -> String do
+  if combo == 0 then
+    "Combo: none"
+  elseif combo < 4 then
+    "Combo: building"
+  elseif combo < 8 then
+    "Combo: hot"
+  else
+    "Combo: maxed"
+  end
+end
+
+fn lap_label(laps: Int) -> String do
+  if laps == 0 then
+    "Laps: warming up"
+  elseif laps < 4 then
+    "Laps: patrol"
+  else
+    "Laps: endurance"
   end
 end
 
@@ -207,15 +365,31 @@ fn pulse_line_y(ticks: Int) -> Int do
 end
 
 fn build_view(base: ViewModel) -> ViewModel do
+  timer.updateTimers()
+
   let transition = read_transition()
   let scene = apply_transition(base.scene, transition)
+  let direction = read_direction(playdate.getCrankChange())
+  let next_ticks = base.ticks + 1
+  let combo = next_combo(scene, direction, base.combo)
+  let energy = clamp(base.energy + energy_delta(scene, direction), 0, 100)
+  let heat = clamp(base.heat + heat_delta(scene, direction), 0, 100)
+  let score = base.score + score_delta(scene, direction, combo)
+  let laps = base.laps + lap_delta(scene, direction, next_ticks)
+
   let with_scene = base with {
     scene = scene,
-    direction = read_direction(playdate.getCrankChange()),
+    direction = direction,
     side = read_side(playdate.getCrankPosition()),
-    ticks = base.ticks + 1,
+    ticks = next_ticks,
     scene_changes = base.scene_changes + transition_delta(transition),
-    last_transition = transition
+    last_transition = transition,
+    combo = combo,
+    energy = energy,
+    heat = heat,
+    score = score,
+    laps = laps,
+    alert = alert_from_heat(heat)
   }
   let with_pilot = with_scene with {
     pilot_frames = bump_pilot_frames(scene, with_scene.pilot_frames)
@@ -230,10 +404,16 @@ pub fn init() -> ViewModel do
     scene = Splash,
     direction = Still,
     side = Left,
+    alert = Nominal,
     ticks = 0,
     scene_changes = 0,
     pilot_frames = 0,
     telemetry_frames = 0,
+    score = 0,
+    combo = 0,
+    laps = 0,
+    energy = 90,
+    heat = 10,
     last_transition = Stayed
   }
 end
@@ -248,16 +428,27 @@ pub fn render(model: ViewModel) -> Unit do
   graphics.drawLine(360, 40, 392, direction_pointer_y(model.direction))
   let pulse_y = pulse_line_y(model.ticks)
   graphics.drawLine(20, pulse_y, 20 + progress_width(model.scene_changes), pulse_y)
+
+  graphics.drawRect(20, 190, 104, 12)
+  graphics.fillRect(22, 192, model.energy, 8)
+  graphics.drawRect(140, 190, 104, 12)
+  graphics.fillRect(142, 192, model.heat, 8)
+
   graphics.drawText("Callisto + Playdate", 20, 20)
-  graphics.drawText("Auto bootstrap state demo", 20, 40)
+  graphics.drawText("Auto bootstrap mission loop", 20, 40)
   graphics.drawText(model.heading(), 20, 60)
   graphics.drawText(scene_title(model.scene), 20, 80)
   graphics.drawText(transition_label(model.last_transition), 20, 100)
   graphics.drawText(direction_label(model.direction), 20, 120)
   graphics.drawText(side_label(model.side), 20, 140)
   graphics.drawText(scene_hint(model.scene), 20, 160)
-  graphics.drawText(session_label(model.scene_changes), 20, 180)
-  graphics.drawText(engagement_label(model.pilot_frames, model.telemetry_frames), 20, 200)
-  graphics.drawText(pulse_label(model.ticks), 20, 220)
+  graphics.drawText(session_label(model.scene_changes), 20, 174)
+  graphics.drawText(energy_label(model.energy), 20, 206)
+  graphics.drawText(heat_label(model.heat), 140, 206)
+  graphics.drawText(alert_label(model.alert), 20, 220)
+  graphics.drawText(score_label(model.score), 160, 220)
+  graphics.drawText(combo_label(model.combo), 20, 234)
+  graphics.drawText(lap_label(model.laps), 160, 234)
+  graphics.drawText(engagement_label(model.pilot_frames, model.telemetry_frames), 20, 248)
   ()
 end

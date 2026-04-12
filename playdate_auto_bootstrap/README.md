@@ -7,17 +7,20 @@ The sample includes an explicit-transition multi-scene HUD:
 - press `B` (just-pressed) to move to the previous scene
 - scene state persists until another transition event occurs
 
-It also tracks persisted session metrics:
+It also tracks persisted mission-loop metrics:
 - total ticks (`update` frames)
 - scene transition count
 - accumulated `Pilot`/`Telemetry` frame counts
 - last transition direction
+- mission resources (`energy`, `heat`)
+- progression counters (`score`, `combo`, `laps`)
 
 Crank direction and crank-side labels are still rendered every frame.
-The HUD now also draws line overlays for:
+The HUD now also draws line + shape overlays for:
 - scene-row separation
 - crank direction pointer
 - session pulse/progress bar tied to transition count
+- energy/heat gauge boxes with fill bars (`drawRect` + `fillRect`)
 
 ## Layout
 
