@@ -155,6 +155,9 @@ struct CompiledProject {
     entry_index: usize,
 }
 
+type EntryCompilation = Option<(resolve::ResolvedModule, tir::TirModule)>;
+type CompilePipelineResult = (SourceDb, ast::Module, Diagnostics, EntryCompilation);
+
 #[derive(Debug, Clone)]
 struct ProjectOptions {
     module_roots: Vec<PathBuf>,
@@ -364,7 +367,7 @@ fn build_playdate_command_with_overrides(
         source_dir.to_path_buf()
     } else {
         let options = resolve_project_options(input, explicit_config, cli_module_roots)?;
-        if options.default_out_dir == PathBuf::from("out") {
+        if options.default_out_dir == Path::new("out") {
             PathBuf::from("Source")
         } else {
             options.default_out_dir
@@ -573,17 +576,7 @@ fn compile_project_with_options(
     Ok((sources, entry_ast, diagnostics, compiled))
 }
 
-fn compile_pipeline(
-    input: &Path,
-) -> Result<
-    (
-        SourceDb,
-        ast::Module,
-        Diagnostics,
-        Option<(resolve::ResolvedModule, tir::TirModule)>,
-    ),
-    i32,
-> {
+fn compile_pipeline(input: &Path) -> Result<CompilePipelineResult, i32> {
     let options = default_project_options(input);
     compile_pipeline_with_options(input, &options)
 }
@@ -591,15 +584,7 @@ fn compile_pipeline(
 fn compile_pipeline_with_options(
     input: &Path,
     options: &ProjectOptions,
-) -> Result<
-    (
-        SourceDb,
-        ast::Module,
-        Diagnostics,
-        Option<(resolve::ResolvedModule, tir::TirModule)>,
-    ),
-    i32,
-> {
+) -> Result<CompilePipelineResult, i32> {
     let (sources, entry_ast, diagnostics, project) = compile_project_with_options(input, options)?;
     let compiled = project.and_then(|project| {
         project
@@ -677,19 +662,19 @@ fn load_module_graph(
 
         if !module_path.is_empty() {
             let key = module_path.join(".");
-            if let Some(existing) = module_to_path.insert(key.clone(), path.clone()) {
-                if existing != path {
-                    diagnostics.error_code(
-                        span::Span::new(file_id, 0, 0),
-                        DIAG_RES_DUPLICATE_MODULE_DEF,
-                        format!(
-                            "module '{}' is defined by multiple files: '{}' and '{}'",
-                            key,
-                            existing.display(),
-                            path.display()
-                        ),
-                    );
-                }
+            if let Some(existing) = module_to_path.insert(key.clone(), path.clone())
+                && existing != path
+            {
+                diagnostics.error_code(
+                    span::Span::new(file_id, 0, 0),
+                    DIAG_RES_DUPLICATE_MODULE_DEF,
+                    format!(
+                        "module '{}' is defined by multiple files: '{}' and '{}'",
+                        key,
+                        existing.display(),
+                        path.display()
+                    ),
+                );
             }
         }
 
@@ -839,10 +824,10 @@ fn synthesize_import_declarations(
                 }
                 _ => None,
             };
-            if let Some(extern_type) = extern_type {
-                if known_type_names.insert(extern_type.name.clone()) {
-                    ast.decls.push(ast::TopDecl::ExternType(extern_type));
-                }
+            if let Some(extern_type) = extern_type
+                && known_type_names.insert(extern_type.name.clone())
+            {
+                ast.decls.push(ast::TopDecl::ExternType(extern_type));
             }
         }
 
@@ -1080,15 +1065,15 @@ fn entry_module_name(entry: &CompiledModule) -> String {
 }
 
 fn write_lua_file(path: &Path, lua: &str) -> Result<(), i32> {
-    if let Some(parent) = path.parent() {
-        if let Err(err) = std::fs::create_dir_all(parent) {
-            eprintln!(
-                "failed to create output directory '{}': {}",
-                parent.display(),
-                err
-            );
-            return Err(1);
-        }
+    if let Some(parent) = path.parent()
+        && let Err(err) = std::fs::create_dir_all(parent)
+    {
+        eprintln!(
+            "failed to create output directory '{}': {}",
+            parent.display(),
+            err
+        );
+        return Err(1);
     }
     if let Err(err) = std::fs::write(path, lua) {
         eprintln!("failed to write '{}': {}", path.display(), err);
@@ -1098,15 +1083,15 @@ fn write_lua_file(path: &Path, lua: &str) -> Result<(), i32> {
 }
 
 fn write_project_file(path: PathBuf, contents: &str) -> Result<(), i32> {
-    if let Some(parent) = path.parent() {
-        if let Err(err) = std::fs::create_dir_all(parent) {
-            eprintln!(
-                "failed to create project directory '{}': {}",
-                parent.display(),
-                err
-            );
-            return Err(1);
-        }
+    if let Some(parent) = path.parent()
+        && let Err(err) = std::fs::create_dir_all(parent)
+    {
+        eprintln!(
+            "failed to create project directory '{}': {}",
+            parent.display(),
+            err
+        );
+        return Err(1);
     }
     if let Err(err) = std::fs::write(&path, contents) {
         eprintln!("failed to write '{}': {}", path.display(), err);

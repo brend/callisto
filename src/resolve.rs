@@ -224,14 +224,13 @@ impl Ctx {
             if let Some(existing) = self
                 .import_modules
                 .insert(alias.clone(), import.path.clone())
+                && existing != import.path
             {
-                if existing != import.path {
-                    self.diagnostics.error_code(
-                        import.span,
-                        DIAG_RES_DUPLICATE_IMPORT_ALIAS,
-                        format!("duplicate import alias '{}'", alias),
-                    );
-                }
+                self.diagnostics.error_code(
+                    import.span,
+                    DIAG_RES_DUPLICATE_IMPORT_ALIAS,
+                    format!("duplicate import alias '{}'", alias),
+                );
             }
 
             if let Some(items) = &import.items {
@@ -239,14 +238,13 @@ impl Ctx {
                     let qualified = format!("{}.{}", import.path.join("."), item);
                     if let Some(existing) =
                         self.import_items.insert(item.clone(), qualified.clone())
+                        && existing != qualified
                     {
-                        if existing != qualified {
-                            self.diagnostics.error_code(
-                                import.span,
-                                DIAG_RES_DUPLICATE_IMPORTED_ITEM,
-                                format!("duplicate imported item '{}'", item),
-                            );
-                        }
+                        self.diagnostics.error_code(
+                            import.span,
+                            DIAG_RES_DUPLICATE_IMPORTED_ITEM,
+                            format!("duplicate imported item '{}'", item),
+                        );
                     }
                 }
             }
@@ -445,7 +443,7 @@ impl Ctx {
         match &expr.kind {
             TypeExprKind::Named { name, args } => {
                 if let Some(param) = type_params.get(name) {
-                    return Type::TypeParam(*param);
+                    return Type::Param(*param);
                 }
                 if let Some(ty) = builtin_type(name) {
                     if !args.is_empty() {

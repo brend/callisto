@@ -29,7 +29,7 @@ pub enum Type {
     Named(TypeId, Vec<Type>),
     Func(Vec<Type>, Box<Type>),
 
-    TypeParam(TypeParamId),
+    Param(TypeParamId),
 
     ForeignNil,
     ForeignNullable(Box<Type>),
@@ -115,7 +115,7 @@ impl Type {
                         .all(|(lhs, rhs)| lhs.is_assignable_from(rhs))
                     && lhs_r.is_assignable_from(rhs_r)
             }
-            (Type::TypeParam(a), Type::TypeParam(b)) => a == b,
+            (Type::Param(a), Type::Param(b)) => a == b,
             (Type::ForeignNullable(_), Type::ForeignNil) => true,
             (Type::ForeignNullable(lhs), Type::ForeignNullable(rhs)) => lhs.is_assignable_from(rhs),
             _ => false,

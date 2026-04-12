@@ -149,18 +149,17 @@ impl<'a> Checker<'a> {
             .tail
             .as_ref()
             .map(|expr| Box::new(self.check_expr_with_expected(expr, Some(&expected_tail))));
-        if let Some(tail_expr) = &tail {
-            if !self.is_assignable(&self.expected_ret, &tail_expr.ty)
-                && !matches!(self.normalize_type(&self.expected_ret), Type::Unit)
-            {
-                self.diagnostics.error(
-                    block.span,
-                    format!(
-                        "tail expression has type {:?} but function expects {:?}",
-                        tail_expr.ty, self.expected_ret
-                    ),
-                );
-            }
+        if let Some(tail_expr) = &tail
+            && !self.is_assignable(&self.expected_ret, &tail_expr.ty)
+            && !matches!(self.normalize_type(&self.expected_ret), Type::Unit)
+        {
+            self.diagnostics.error(
+                block.span,
+                format!(
+                    "tail expression has type {:?} but function expects {:?}",
+                    tail_expr.ty, self.expected_ret
+                ),
+            );
         }
 
         self.pop_scope();
@@ -417,41 +416,41 @@ impl<'a> Checker<'a> {
                 TirExprKind::Func(func_id),
             );
         }
-        if let Some(variant_id) = self.resolved.variant_names.get(name).copied() {
-            if let Some(ty_id) = self.resolved.variant_to_type.get(&variant_id).copied() {
-                let inferred_args = self
-                    .expected_named_type_args(expected, ty_id)
-                    .unwrap_or_else(|| self.default_type_args_for_type(ty_id));
-                let named = Type::Named(ty_id, inferred_args);
-                let payload = self.variant_payload(variant_id);
-                if matches!(payload, Some(VariantPayload::None)) {
-                    if self.expected_named_type_args(expected, ty_id).is_none()
-                        && self
-                            .resolved
-                            .type_infos
-                            .get(ty_id.0 as usize)
-                            .is_some_and(|info| !info.params.is_empty())
-                    {
-                        self.diagnostics.error_code(
-                            span,
-                            DIAG_TYP_CONSTRUCTOR_INFER,
-                            format!(
-                                "cannot infer generic type arguments for constructor '{}' without context",
-                                name
-                            ),
-                        );
-                    }
-                    return self.mk_expr(
-                        named,
-                        TirExprKind::VariantInit {
-                            variant_id,
-                            payload: TirVariantPayload::None,
-                        },
+        if let Some(variant_id) = self.resolved.variant_names.get(name).copied()
+            && let Some(ty_id) = self.resolved.variant_to_type.get(&variant_id).copied()
+        {
+            let inferred_args = self
+                .expected_named_type_args(expected, ty_id)
+                .unwrap_or_else(|| self.default_type_args_for_type(ty_id));
+            let named = Type::Named(ty_id, inferred_args);
+            let payload = self.variant_payload(variant_id);
+            if matches!(payload, Some(VariantPayload::None)) {
+                if self.expected_named_type_args(expected, ty_id).is_none()
+                    && self
+                        .resolved
+                        .type_infos
+                        .get(ty_id.0 as usize)
+                        .is_some_and(|info| !info.params.is_empty())
+                {
+                    self.diagnostics.error_code(
+                        span,
+                        DIAG_TYP_CONSTRUCTOR_INFER,
+                        format!(
+                            "cannot infer generic type arguments for constructor '{}' without context",
+                            name
+                        ),
                     );
                 }
-                // Constructor with payload: represent as extern path fallback until called.
-                return self.mk_expr(Type::Error, TirExprKind::ExternPath(vec![name.to_string()]));
+                return self.mk_expr(
+                    named,
+                    TirExprKind::VariantInit {
+                        variant_id,
+                        payload: TirVariantPayload::None,
+                    },
+                );
             }
+            // Constructor with payload: represent as extern path fallback until called.
+            return self.mk_expr(Type::Error, TirExprKind::ExternPath(vec![name.to_string()]));
         }
         if let Some(path) = self.resolved.import_modules.get(name) {
             return self.mk_expr(Type::Error, TirExprKind::ExternPath(path.clone()));
@@ -526,22 +525,21 @@ impl<'a> Checker<'a> {
                 )
             }
             Type::Error => {
-                if let TirExprKind::ExternPath(segments) = &callee_tir.kind {
-                    if self.is_imported_module_path(segments)
-                        && !self.should_suppress_call_target_diagnostic(callee)
-                    {
-                        let module_path = segments.join(".");
-                        self.diagnostics.error_with_note_code(
-                            span,
-                            DIAG_TYP_CALL_TARGET,
-                            format!("cannot call imported module '{}' as a function", module_path),
-                            callee.span,
-                            format!(
-                                "'{}' is a module path; call one of its members (for example '{}.<fn>')",
-                                module_path, module_path
-                            ),
-                        );
-                    }
+                if let TirExprKind::ExternPath(segments) = &callee_tir.kind
+                    && self.is_imported_module_path(segments)
+                    && !self.should_suppress_call_target_diagnostic(callee)
+                {
+                    let module_path = segments.join(".");
+                    self.diagnostics.error_with_note_code(
+                        span,
+                        DIAG_TYP_CALL_TARGET,
+                        format!("cannot call imported module '{}' as a function", module_path),
+                        callee.span,
+                        format!(
+                            "'{}' is a module path; call one of its members (for example '{}.<fn>')",
+                            module_path, module_path
+                        ),
+                    );
                 }
                 self.mk_expr(
                     Type::Error,
@@ -631,16 +629,16 @@ impl<'a> Checker<'a> {
             return self.mk_expr(Type::Error, TirExprKind::ExternPath(next));
         }
 
-        if let Type::Named(type_id, type_args) = &base.ty {
-            if let Some(field_ty) = self.lookup_record_field(*type_id, type_args, name) {
-                return self.mk_expr(
-                    field_ty,
-                    TirExprKind::Field {
-                        base: Box::new(base),
-                        field: name.to_string(),
-                    },
-                );
-            }
+        if let Type::Named(type_id, type_args) = &base.ty
+            && let Some(field_ty) = self.lookup_record_field(*type_id, type_args, name)
+        {
+            return self.mk_expr(
+                field_ty,
+                TirExprKind::Field {
+                    base: Box::new(base),
+                    field: name.to_string(),
+                },
+            );
         }
 
         self.diagnostics
@@ -969,23 +967,23 @@ impl<'a> Checker<'a> {
             tir_arms.push(TirMatchArm { pattern, body });
         }
 
-        if let Some(sum_variants) = self.sum_variants_for_type(&scrutinee_tir.ty) {
-            if !has_catch_all {
-                let missing: Vec<String> = sum_variants
-                    .iter()
-                    .filter(|v| !covered_variants.contains(&v.id))
-                    .map(|v| v.name.clone())
-                    .collect();
-                if !missing.is_empty() {
-                    self.diagnostics.error_code(
-                        scrutinee.span,
-                        DIAG_TYP_NON_EXHAUSTIVE_MATCH,
-                        format!(
-                            "non-exhaustive match, missing variants: {}",
-                            missing.join(", ")
-                        ),
-                    );
-                }
+        if let Some(sum_variants) = self.sum_variants_for_type(&scrutinee_tir.ty)
+            && !has_catch_all
+        {
+            let missing: Vec<String> = sum_variants
+                .iter()
+                .filter(|v| !covered_variants.contains(&v.id))
+                .map(|v| v.name.clone())
+                .collect();
+            if !missing.is_empty() {
+                self.diagnostics.error_code(
+                    scrutinee.span,
+                    DIAG_TYP_NON_EXHAUSTIVE_MATCH,
+                    format!(
+                        "non-exhaustive match, missing variants: {}",
+                        missing.join(", ")
+                    ),
+                );
             }
         }
 
@@ -1085,16 +1083,16 @@ impl<'a> Checker<'a> {
                 fields.iter().map(|f| (f.name.clone(), f.span)).collect();
             self.validate_record_field_set(span, &expected_fields, &provided, "record initializer");
             for (name, value) in &record_fields {
-                if let Some(expected) = expected_fields.iter().find(|f| f.name == name.as_str()) {
-                    if !self.is_assignable(&expected.ty, &value.ty) {
-                        self.diagnostics.error(
-                            span,
-                            format!(
-                                "field '{}' expects {:?} but got {:?}",
-                                name, expected.ty, value.ty
-                            ),
-                        );
-                    }
+                if let Some(expected) = expected_fields.iter().find(|f| f.name == name.as_str())
+                    && !self.is_assignable(&expected.ty, &value.ty)
+                {
+                    self.diagnostics.error(
+                        span,
+                        format!(
+                            "field '{}' expects {:?} but got {:?}",
+                            name, expected.ty, value.ty
+                        ),
+                    );
                 }
             }
         } else {
@@ -1570,16 +1568,16 @@ impl<'a> Checker<'a> {
                     .collect();
                 self.validate_record_field_set(span, expected_fields, &provided, "constructor");
                 for (name, value) in values {
-                    if let Some(expected) = expected_fields.iter().find(|f| f.name == *name) {
-                        if !self.is_assignable(&expected.ty, &value.ty) {
-                            self.diagnostics.error(
-                                span,
-                                format!(
-                                    "field '{}' expects {:?} but got {:?}",
-                                    name, expected.ty, value.ty
-                                ),
-                            );
-                        }
+                    if let Some(expected) = expected_fields.iter().find(|f| f.name == *name)
+                        && !self.is_assignable(&expected.ty, &value.ty)
+                    {
+                        self.diagnostics.error(
+                            span,
+                            format!(
+                                "field '{}' expects {:?} but got {:?}",
+                                name, expected.ty, value.ty
+                            ),
+                        );
                     }
                 }
             }
@@ -1862,18 +1860,18 @@ impl<'a> Checker<'a> {
                     .iter()
                     .map(|arg| self.normalize_type_with_depth(arg, depth + 1))
                     .collect();
-                if let Some(info) = self.resolved.type_infos.get(type_id.0 as usize) {
-                    if let TypeKind::Alias(alias_ty) = &info.kind {
-                        let mut subst = HashMap::new();
-                        for (param, arg) in info.params.iter().zip(&args) {
-                            subst.insert(*param, arg.clone());
-                        }
-                        for param in info.params.iter().skip(args.len()) {
-                            subst.insert(*param, Type::Error);
-                        }
-                        let expanded = substitute_type_params(alias_ty, &subst);
-                        return self.normalize_type_with_depth(&expanded, depth + 1);
+                if let Some(info) = self.resolved.type_infos.get(type_id.0 as usize)
+                    && let TypeKind::Alias(alias_ty) = &info.kind
+                {
+                    let mut subst = HashMap::new();
+                    for (param, arg) in info.params.iter().zip(&args) {
+                        subst.insert(*param, arg.clone());
                     }
+                    for param in info.params.iter().skip(args.len()) {
+                        subst.insert(*param, Type::Error);
+                    }
+                    let expanded = substitute_type_params(alias_ty, &subst);
+                    return self.normalize_type_with_depth(&expanded, depth + 1);
                 }
                 Type::Named(*type_id, args)
             }
@@ -1936,7 +1934,7 @@ impl<'a> Checker<'a> {
         match &expr.kind {
             TypeExprKind::Named { name, args } => {
                 if let Some(param) = self.current_type_params.get(name).copied() {
-                    return Type::TypeParam(param);
+                    return Type::Param(param);
                 }
                 if let Some(ty) = builtin_type(name) {
                     return ty;
@@ -2105,7 +2103,7 @@ fn infer_record_field_type_params(
 
 fn infer_type_params(expected: &Type, actual: &Type, subst: &mut HashMap<TypeParamId, Type>) {
     match expected {
-        Type::TypeParam(id) => {
+        Type::Param(id) => {
             if let Some(existing) = subst.get(id) {
                 if !existing.is_assignable_from(actual) && !actual.is_assignable_from(existing) {
                     subst.insert(*id, Type::Error);
@@ -2115,22 +2113,23 @@ fn infer_type_params(expected: &Type, actual: &Type, subst: &mut HashMap<TypePar
             }
         }
         Type::Named(expected_id, expected_args) => {
-            if let Type::Named(actual_id, actual_args) = actual {
-                if expected_id == actual_id && expected_args.len() == actual_args.len() {
-                    for (exp_arg, act_arg) in expected_args.iter().zip(actual_args) {
-                        infer_type_params(exp_arg, act_arg, subst);
-                    }
+            if let Type::Named(actual_id, actual_args) = actual
+                && expected_id == actual_id
+                && expected_args.len() == actual_args.len()
+            {
+                for (exp_arg, act_arg) in expected_args.iter().zip(actual_args) {
+                    infer_type_params(exp_arg, act_arg, subst);
                 }
             }
         }
         Type::Func(expected_params, expected_ret) => {
-            if let Type::Func(actual_params, actual_ret) = actual {
-                if expected_params.len() == actual_params.len() {
-                    for (exp_param, act_param) in expected_params.iter().zip(actual_params) {
-                        infer_type_params(exp_param, act_param, subst);
-                    }
-                    infer_type_params(expected_ret, actual_ret, subst);
+            if let Type::Func(actual_params, actual_ret) = actual
+                && expected_params.len() == actual_params.len()
+            {
+                for (exp_param, act_param) in expected_params.iter().zip(actual_params) {
+                    infer_type_params(exp_param, act_param, subst);
                 }
+                infer_type_params(expected_ret, actual_ret, subst);
             }
         }
         Type::ForeignNullable(expected_inner) => {
@@ -2144,7 +2143,7 @@ fn infer_type_params(expected: &Type, actual: &Type, subst: &mut HashMap<TypePar
 
 fn substitute_type_params(ty: &Type, subst: &HashMap<TypeParamId, Type>) -> Type {
     match ty {
-        Type::TypeParam(id) => subst.get(id).cloned().unwrap_or(Type::Error),
+        Type::Param(id) => subst.get(id).cloned().unwrap_or(Type::Error),
         Type::Named(type_id, args) => Type::Named(
             *type_id,
             args.iter()
