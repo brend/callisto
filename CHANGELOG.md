@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-12
+
 ### Added
 - Shared `playdate.graphics` bindings now include `drawLine(x1, y1, x2, y2)`.
 - Shared `playdate.graphics` bindings now include shape primitives `drawRect(x, y, width, height)` and `fillRect(x, y, width, height)`.
