@@ -11,12 +11,35 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v5
-    - name: Build
+
+    - name: Build (debug)
       run: cargo build --verbose
+
     - name: Run tests
       run: cargo test --verbose
+
+    - name: Playdate sample Lua smoke (debug binary)
+      run: |
+        make -C playdate_bouncing_ball build-lua
+        make -C playdate_auto_bootstrap build-lua
+
+    - name: Debug binary smoke checks
+      run: |
+        set -euo pipefail
+        tmp_dir="$(mktemp -d)"
+        target/debug/callisto check playdate_auto_bootstrap/src/game.cal --config playdate_auto_bootstrap/callisto.toml
+        target/debug/callisto emit-lua playdate_auto_bootstrap/src/game.cal -o "$tmp_dir" --config playdate_auto_bootstrap/callisto.toml --playdate-bootstrap
+
+    - name: Build (release)
+      run: cargo build --release --verbose
+
+    - name: Release binary smoke checks
+      run: |
+        set -euo pipefail
+        tmp_dir="$(mktemp -d)"
+        target/release/callisto check playdate_auto_bootstrap/src/game.cal --config playdate_auto_bootstrap/callisto.toml
+        target/release/callisto emit-lua playdate_auto_bootstrap/src/game.cal -o "$tmp_dir" --config playdate_auto_bootstrap/callisto.toml --playdate-bootstrap
