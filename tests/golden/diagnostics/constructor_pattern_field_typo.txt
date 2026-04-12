@@ -1,0 +1,6 @@
+golden_constructor_pattern_field_typo.luna:6:17: error[CAL-TYP-024]: unknown field 'widht' in constructor pattern
+  note at golden_constructor_pattern_field_typo.luna:6:10: did you mean 'width' ? expected fields: width, height
+golden_constructor_pattern_field_typo.luna:6:10: error[CAL-TYP-024]: missing field 'width' in constructor pattern
+  note at golden_constructor_pattern_field_typo.luna:6:10: provided fields: widht; add `width = ...`
+golden_constructor_pattern_field_typo.luna:6:10: error[CAL-TYP-024]: missing field 'height' in constructor pattern
+  note at golden_constructor_pattern_field_typo.luna:6:10: provided fields: widht; add `height = ...`

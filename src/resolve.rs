@@ -319,6 +319,9 @@ impl Ctx {
                 TypeDeclBody::Alias(expr) => {
                     TypeKind::Alias(self.resolve_type_expr(expr, &local_type_params, false))
                 }
+                TypeDeclBody::Newtype(expr) => {
+                    TypeKind::Newtype(self.resolve_type_expr(expr, &local_type_params, false))
+                }
                 TypeDeclBody::Record(fields) => TypeKind::Record(
                     fields
                         .iter()

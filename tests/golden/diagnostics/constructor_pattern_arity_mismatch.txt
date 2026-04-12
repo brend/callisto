@@ -1,0 +1,2 @@
+golden_constructor_pattern_arity_mismatch.luna:6:10: error[CAL-TYP-023]: constructor pattern argument count mismatch: expected 2, got 1
+  note at golden_constructor_pattern_arity_mismatch.luna:6:10: try `Move(_, _)`

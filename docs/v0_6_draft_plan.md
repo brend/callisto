@@ -71,7 +71,7 @@ Status: active.
 ## Milestone Status
 
 - `M0`: in progress.
-- `M1`: pending.
-- `M2`: pending.
-- `M3`: pending.
-- `M4`: pending.
+- `M1`: complete (`newtype` parser/resolver/typechecker/codegen support + regression coverage).
+- `M2`: complete (duplicate/unreachable match-arm diagnostics, Bool exhaustiveness tightening, and regression/golden coverage).
+- `M3`: complete (pattern payload/field diagnostics hardening, conformance-matrix fill-in, and regression/golden coverage).
+- `M4`: in progress (validation commands and release notes/version updates complete; awaiting tag + maintainer sign-off).

@@ -1,0 +1,1 @@
+golden_bool_non_exhaustive_match.luna:3:9: error[CAL-TYP-030]: non-exhaustive match, missing cases: false

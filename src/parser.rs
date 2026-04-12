@@ -125,6 +125,9 @@ impl Parser {
         if self.at(TokenKind::KwType) {
             return Some(TopDecl::Type(self.parse_type_decl(vis)));
         }
+        if self.at(TokenKind::KwNewtype) {
+            return Some(TopDecl::Type(self.parse_newtype_decl(vis)));
+        }
         if self.at(TokenKind::KwFn) {
             return Some(TopDecl::Func(self.parse_func_decl(vis)));
         }
@@ -172,6 +175,22 @@ impl Parser {
             name,
             type_params,
             body,
+        }
+    }
+
+    fn parse_newtype_decl(&mut self, vis: Visibility) -> TypeDecl {
+        let start = self.expect(TokenKind::KwNewtype, "expected 'newtype'").span;
+        let name = self.expect_ident("expected newtype name").lexeme;
+        let type_params = self.parse_type_param_list();
+        self.expect(TokenKind::Eq, "expected '=' in newtype declaration");
+        let inner = self.parse_type_expr();
+        let end = self.prev_span();
+        TypeDecl {
+            span: start.merge(end),
+            vis,
+            name,
+            type_params,
+            body: TypeDeclBody::Newtype(inner),
         }
     }
 
@@ -1417,6 +1436,7 @@ impl Parser {
         while !self.at(TokenKind::Eof)
             && !self.at(TokenKind::Newline)
             && !self.at(TokenKind::KwType)
+            && !self.at(TokenKind::KwNewtype)
             && !self.at(TokenKind::KwFn)
             && !self.at(TokenKind::KwImpl)
             && !self.at(TokenKind::KwExtern)

@@ -6,9 +6,9 @@ Use this as the implementation board for constructor/record-pattern validation d
 
 ## Scope Freeze
 
-- [ ] Keep `M3` focused on pattern-conformance and diagnostics hardening.
-- [ ] Avoid broad new control-flow or module-system features in this milestone.
-- [ ] Keep parser/typechecker behavior aligned with existing language-reference framing.
+- [x] Keep `M3` focused on pattern-conformance and diagnostics hardening.
+- [x] Avoid broad new control-flow or module-system features in this milestone.
+- [x] Keep parser/typechecker behavior aligned with existing language-reference framing.
 
 ## M3 Decisions (Implement As Written)
 
@@ -31,24 +31,24 @@ Use this as the implementation board for constructor/record-pattern validation d
 
 ### A) Pattern Validation
 
-- [ ] Audit constructor/record-pattern checking paths in `src/typecheck.rs`.
-- [ ] Improve diagnostics for field-name mistakes, payload-shape mismatches, and inconsistent pattern usage.
-- [ ] Add fix-it style notes for constructor arity and field-typo cases.
-- [ ] Ensure improvements do not introduce duplicate/noisy cascading errors.
+- [x] Audit constructor/record-pattern checking paths in `src/typecheck.rs`.
+- [x] Improve diagnostics for field-name mistakes, payload-shape mismatches, and inconsistent pattern usage.
+- [x] Add fix-it style notes for constructor arity and field-typo cases.
+- [x] Ensure improvements do not introduce duplicate/noisy cascading errors.
 
 ### B) Conformance Matrix + Tests
 
-- [ ] Add `docs/v0_6_language_conformance_matrix.md`.
-- [ ] Populate matrix rows for declarations, expressions, patterns, modules, and extern interop.
-- [ ] Add/extend regression tests where matrix coverage gaps are identified.
+- [x] Add `docs/v0_6_language_conformance_matrix.md`.
+- [x] Populate matrix rows for declarations, expressions, patterns, modules, and extern interop.
+- [x] Add/extend regression tests where matrix coverage gaps are identified.
 
 ### C) Docs
 
-- [ ] Update language examples in `README.md` and/or `docs/callisto_cheat_sheet.md` when behavior wording changes.
-- [ ] Record `M3` status in `docs/v0_6_draft_plan.md`.
+- [x] Update language examples in `README.md` and/or `docs/callisto_cheat_sheet.md` when behavior wording changes.
+- [x] Record `M3` status in `docs/v0_6_draft_plan.md`.
 
 ## Definition of Done (M3)
 
-- [ ] `cargo test` passes with expanded conformance and pattern diagnostics coverage.
-- [ ] Conformance matrix exists and maps language surface areas to concrete tests.
-- [ ] Pattern diagnostics are actionable and stable for key mismatch cases, with fix-it notes for common mistakes.
+- [x] `cargo test` passes with expanded conformance and pattern diagnostics coverage.
+- [x] Conformance matrix exists and maps language surface areas to concrete tests.
+- [x] Pattern diagnostics are actionable and stable for key mismatch cases, with fix-it notes for common mistakes.

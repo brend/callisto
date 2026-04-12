@@ -6,9 +6,9 @@ Use this as the implementation board for exhaustiveness/reachability diagnostics
 
 ## Scope Freeze
 
-- [ ] Keep `M2` focused on match-analysis quality plus targeted parser QoL additions.
-- [ ] Preserve current valid match syntax and execution semantics.
-- [ ] Prioritize diagnostic precision over introducing speculative inference behavior.
+- [x] Keep `M2` focused on match-analysis quality plus targeted parser QoL additions.
+- [x] Preserve current valid match syntax and execution semantics.
+- [x] Prioritize diagnostic precision over introducing speculative inference behavior.
 
 ## M2 Decisions (Implement As Written)
 
@@ -32,25 +32,25 @@ Use this as the implementation board for exhaustiveness/reachability diagnostics
 
 ### A) Typechecker Match Analysis
 
-- [ ] Extend match-coverage tracking in `src/typecheck.rs` for duplicate and dead-arm detection.
-- [ ] Ensure catch-all arm handling is deterministic and diagnostics are non-cascading.
-- [ ] Validate behavior for constructor, wildcard, and Bool-pattern combinations.
+- [x] Extend match-coverage tracking in `src/typecheck.rs` for duplicate and dead-arm detection.
+- [x] Ensure catch-all arm handling is deterministic and diagnostics are non-cascading.
+- [x] Validate behavior for constructor, wildcard, and Bool-pattern combinations.
 
 ### B) Regression Coverage
 
-- [ ] Add positive/negative tests in `src/main.rs` for duplicate-constructor arms.
-- [ ] Add tests for unreachable arms after wildcard/bind catch-alls.
-- [ ] Add parser/typecheck acceptance tests for trailing commas and field punning.
-- [ ] Keep existing non-exhaustive-match diagnostics coverage green.
+- [x] Add positive/negative tests in `src/main.rs` for duplicate-constructor arms.
+- [x] Add tests for unreachable arms after wildcard/bind catch-alls.
+- [x] Add parser/typecheck acceptance tests for trailing commas and field punning.
+- [x] Keep existing non-exhaustive-match diagnostics coverage green.
 
 ### C) Docs
 
-- [ ] Update `README.md` diagnostics/language reference with match-analysis behavior.
-- [ ] Record `M2` status in `docs/v0_6_draft_plan.md`.
+- [x] Update `README.md` diagnostics/language reference with match-analysis behavior.
+- [x] Record `M2` status in `docs/v0_6_draft_plan.md`.
 
 ## Definition of Done (M2)
 
-- [ ] `cargo test` passes with expanded match-analysis coverage.
-- [ ] Duplicate/unreachable arm diagnostics are clear and deterministic.
-- [ ] Trailing-comma and field-punning syntax paths parse/check cleanly.
-- [ ] Existing valid match programs remain unaffected.
+- [x] `cargo test` passes with expanded match-analysis coverage.
+- [x] Duplicate/unreachable arm diagnostics are clear and deterministic.
+- [x] Trailing-comma and field-punning syntax paths parse/check cleanly.
+- [x] Existing valid match programs remain unaffected.

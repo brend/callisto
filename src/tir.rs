@@ -140,6 +140,10 @@ pub enum TirExprKind {
         payload: TirVariantPayload,
     },
 
+    NewtypeWrap {
+        value: Box<TirExpr>,
+    },
+
     Lambda {
         params: Vec<(LocalId, Type)>,
         body: Box<TirExpr>,

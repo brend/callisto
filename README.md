@@ -4,7 +4,7 @@ Callisto is a statically-typed programming language that compiles to Lua. It bri
 
 ## Features
 
-- **Static type system** — primitives (`Int`, `Float`, `Bool`, `String`), record types, sum types, and generics
+- **Static type system** — primitives (`Int`, `Float`, `Bool`, `String`), record types, sum types, generics, and nominal `newtype` wrappers
 - **Pattern matching** — exhaustive `match`/`case` on sum types, literals, and constructors
 - **Algebraic data types** — record types and sum types with positional or named payloads
 - **Immutable/mutable bindings** — `let` for immutable, `var` for mutable
@@ -85,6 +85,13 @@ path/to/file.cal:line:col: error[CAL-TYP-010]: cannot call imported module 'foo.
 ```
 
 Use these codes to search issues/docs and to keep troubleshooting stable when wording evolves.
+
+Match-analysis diagnostics include:
+- `CAL-TYP-030`: non-exhaustive `match` (sum variants and `Bool` cases list missing coverage).
+- `CAL-TYP-031`: duplicate constructor arm (with a note pointing to the earlier covered arm).
+- `CAL-TYP-032`: unreachable arm after prior coverage is complete (catch-all, complete `Bool`, or complete constructor coverage).
+- `CAL-TYP-023`: constructor-pattern payload shape errors (wrong payload form or constructor-pattern arity mismatch).
+- `CAL-TYP-024`: constructor-pattern record-field diagnostics (unknown/duplicate/missing fields with fix-it guidance).
 
 ## v0.1 Scope (Baseline)
 
@@ -198,6 +205,7 @@ end
 | `type Point { x: Int, y: Int }` | Record type |
 | `type Shape = \| Circle(Float) \| Rect { w: Float, h: Float }` | Sum type |
 | `type Option[T] = \| None \| Some(T)` | Generic sum type |
+| `newtype UserId = Int` | Nominal wrapper over an underlying representation type |
 
 ### Bindings
 

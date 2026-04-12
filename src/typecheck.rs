@@ -23,7 +23,11 @@ const DIAG_TYP_CALL_ARG_COUNT: &str = "CAL-TYP-011";
 const DIAG_TYP_CALL_ARG_TYPE: &str = "CAL-TYP-012";
 const DIAG_TYP_CONSTRUCTOR_PAYLOAD: &str = "CAL-TYP-021";
 const DIAG_TYP_CONSTRUCTOR_INFER: &str = "CAL-TYP-022";
+const DIAG_TYP_CONSTRUCTOR_PATTERN_PAYLOAD: &str = "CAL-TYP-023";
+const DIAG_TYP_PATTERN_RECORD_FIELDS: &str = "CAL-TYP-024";
 const DIAG_TYP_NON_EXHAUSTIVE_MATCH: &str = "CAL-TYP-030";
+const DIAG_TYP_DUPLICATE_MATCH_ARM: &str = "CAL-TYP-031";
+const DIAG_TYP_UNREACHABLE_MATCH_ARM: &str = "CAL-TYP-032";
 
 pub fn typecheck_and_lower(resolved: &ResolvedModule) -> (TirModule, Diagnostics) {
     let mut checker = Checker::new(resolved);
@@ -939,20 +943,62 @@ impl<'a> Checker<'a> {
         let mut tir_arms = Vec::new();
         let mut result_ty: Option<Type> = None;
         let mut has_catch_all = false;
+        let sum_variants = self
+            .sum_variants_for_type(&scrutinee_tir.ty)
+            .map(|v| v.to_vec());
+        let sum_variant_count = sum_variants.as_ref().map(|v| v.len()).unwrap_or(0);
+        let is_bool_match = matches!(self.normalize_type(&scrutinee_tir.ty), Type::Bool);
         let mut covered_variants = HashSet::new();
+        let mut fully_covered_variants = HashSet::new();
+        let mut covered_bools = HashSet::new();
+        let mut seen_constructor_arms: HashMap<String, crate::span::Span> = HashMap::new();
 
         for arm in arms {
+            let arm_is_unreachable = has_catch_all
+                || (is_bool_match && covered_bools.len() == 2)
+                || (sum_variants.is_some() && fully_covered_variants.len() == sum_variant_count);
+            if arm_is_unreachable {
+                self.diagnostics.error_with_note_code(
+                    arm.pattern.span,
+                    DIAG_TYP_UNREACHABLE_MATCH_ARM,
+                    "unreachable match arm",
+                    arm.pattern.span,
+                    "this arm is never selected because earlier arms already cover all remaining cases",
+                );
+            }
+
             self.push_scope();
             let pattern = self.check_pattern(&arm.pattern, &scrutinee_tir.ty);
+            let constructor_key = constructor_pattern_key(&arm.pattern);
+            if !arm_is_unreachable
+                && let Some(key) = constructor_key.as_ref()
+                && let Some(previous_span) = seen_constructor_arms.get(key.as_str()).copied()
+            {
+                self.diagnostics.error_with_note_code(
+                    arm.pattern.span,
+                    DIAG_TYP_DUPLICATE_MATCH_ARM,
+                    "duplicate constructor match arm",
+                    previous_span,
+                    "constructor pattern already covered by this earlier arm",
+                );
+            } else if let Some(key) = constructor_key {
+                seen_constructor_arms.insert(key, arm.pattern.span);
+            }
             if matches!(pattern, TirPattern::Wildcard | TirPattern::Bind(_)) {
                 has_catch_all = true;
             }
+            if let PatternKind::Bool { value } = &arm.pattern.kind {
+                covered_bools.insert(*value);
+            }
             if let TirPattern::Variant {
                 variant_id: Some(variant_id),
-                ..
+                payload,
             } = &pattern
             {
                 covered_variants.insert(*variant_id);
+                if variant_payload_is_irrefutable(payload) {
+                    fully_covered_variants.insert(*variant_id);
+                }
             }
             let body = self.check_block(&arm.body);
             if let Some(tail) = &body.tail {
@@ -967,7 +1013,7 @@ impl<'a> Checker<'a> {
             tir_arms.push(TirMatchArm { pattern, body });
         }
 
-        if let Some(sum_variants) = self.sum_variants_for_type(&scrutinee_tir.ty)
+        if let Some(sum_variants) = sum_variants
             && !has_catch_all
         {
             let missing: Vec<String> = sum_variants
@@ -981,6 +1027,24 @@ impl<'a> Checker<'a> {
                     DIAG_TYP_NON_EXHAUSTIVE_MATCH,
                     format!(
                         "non-exhaustive match, missing variants: {}",
+                        missing.join(", ")
+                    ),
+                );
+            }
+        } else if is_bool_match && !has_catch_all {
+            let mut missing = Vec::new();
+            if !covered_bools.contains(&true) {
+                missing.push("true");
+            }
+            if !covered_bools.contains(&false) {
+                missing.push("false");
+            }
+            if !missing.is_empty() {
+                self.diagnostics.error_code(
+                    scrutinee.span,
+                    DIAG_TYP_NON_EXHAUSTIVE_MATCH,
+                    format!(
+                        "non-exhaustive match, missing cases: {}",
                         missing.join(", ")
                     ),
                 );
@@ -1083,7 +1147,13 @@ impl<'a> Checker<'a> {
 
             let provided: Vec<(String, crate::span::Span)> =
                 fields.iter().map(|f| (f.name.clone(), f.span)).collect();
-            self.validate_record_field_set(span, &expected_fields, &provided, "record initializer");
+            self.validate_record_field_set(
+                span,
+                &expected_fields,
+                &provided,
+                "record initializer",
+                None,
+            );
             for (name, value) in &record_fields {
                 if let Some(expected) = expected_fields.iter().find(|f| f.name == name.as_str())
                     && !self.is_assignable(&expected.ty, &value.ty)
@@ -1099,8 +1169,22 @@ impl<'a> Checker<'a> {
             }
             record_fields
         } else {
-            self.diagnostics
-                .error(span, format!("type '{}' is not a record type", type_name));
+            if self
+                .resolved
+                .type_infos
+                .get(type_id.0 as usize)
+                .is_some_and(|info| matches!(info.kind, TypeKind::Newtype(_)))
+            {
+                self.diagnostics.error_with_note(
+                    span,
+                    format!("type '{}' is a newtype, not a record type", type_name),
+                    span,
+                    format!("construct it with `{}(value)`", type_name),
+                );
+            } else {
+                self.diagnostics
+                    .error(span, format!("type '{}' is not a record type", type_name));
+            }
             self.check_record_fields_with_expected(fields, None)
         };
 
@@ -1198,6 +1282,9 @@ impl<'a> Checker<'a> {
         expected: Option<&Type>,
     ) -> TirExpr {
         let Some(variant_id) = self.resolved.variant_names.get(name).copied() else {
+            if let Some(type_id) = self.resolved.type_names.get(name).copied() {
+                return self.check_newtype_constructor_expr(name, type_id, payload, span, expected);
+            }
             self.diagnostics
                 .error(span, format!("unknown constructor '{}'", name));
             return self.mk_expr(Type::Error, TirExprKind::Unit);
@@ -1234,6 +1321,72 @@ impl<'a> Checker<'a> {
             TirExprKind::VariantInit {
                 variant_id,
                 payload,
+            },
+        )
+    }
+
+    fn check_newtype_constructor_expr(
+        &mut self,
+        name: &str,
+        type_id: TypeId,
+        payload: &ConstructorPayload,
+        span: crate::span::Span,
+        expected: Option<&Type>,
+    ) -> TirExpr {
+        let Some(inner_raw) = self.newtype_inner_type(type_id) else {
+            self.diagnostics
+                .error(span, format!("unknown constructor '{}'", name));
+            return self.mk_expr(Type::Error, TirExprKind::Unit);
+        };
+
+        let ConstructorPayload::Positional(values) = payload else {
+            self.diagnostics.error_with_note(
+                span,
+                "newtype constructor requires one positional payload argument",
+                span,
+                format!("use `{}(value)` constructor syntax", name),
+            );
+            return self.mk_expr(Type::Error, TirExprKind::Unit);
+        };
+        if values.len() != 1 {
+            self.diagnostics.error_with_note(
+                span,
+                format!(
+                    "newtype constructor argument count mismatch: expected 1, got {}",
+                    values.len()
+                ),
+                span,
+                format!("use `{}(value)` constructor syntax", name),
+            );
+            return self.mk_expr(Type::Error, TirExprKind::Unit);
+        }
+
+        let expected_args = self.expected_named_type_args(expected, type_id);
+        let mut subst = self.seed_subst_from_expected_args(type_id, expected_args.as_deref());
+        let hinted_inner = substitute_type_params(&inner_raw, &subst);
+        let value_tir = self.check_expr_with_expected(&values[0], Some(&hinted_inner));
+        infer_type_params(&inner_raw, &value_tir.ty, &mut subst);
+
+        let context = format!("newtype '{}'", name);
+        let type_args =
+            self.finalize_inferred_type_args(type_id, &mut subst, span, &context, expected_args);
+        let expected_inner = substitute_type_params(&inner_raw, &subst);
+        if !self.is_assignable(&expected_inner, &value_tir.ty) {
+            self.diagnostics.error_with_note(
+                span,
+                format!(
+                    "newtype '{}' payload expects {:?} but got {:?}",
+                    name, expected_inner, value_tir.ty
+                ),
+                span,
+                format!("wrap a value assignable to {:?}", expected_inner),
+            );
+        }
+
+        self.mk_expr(
+            Type::Named(type_id, type_args),
+            TirExprKind::NewtypeWrap {
+                value: Box::new(value_tir),
             },
         )
     }
@@ -1306,6 +1459,7 @@ impl<'a> Checker<'a> {
                 let variant_id = self.resolved.variant_names.get(name).copied();
                 let payload = if let Some(variant_id) = variant_id {
                     self.check_constructor_pattern_payload(
+                        name,
                         variant_id,
                         args,
                         &[],
@@ -1330,6 +1484,7 @@ impl<'a> Checker<'a> {
                 let variant_id = self.resolved.variant_names.get(name).copied();
                 let payload = if let Some(variant_id) = variant_id {
                     self.check_constructor_pattern_payload(
+                        name,
                         variant_id,
                         &[],
                         fields,
@@ -1511,6 +1666,14 @@ impl<'a> Checker<'a> {
         }
     }
 
+    fn newtype_inner_type(&self, type_id: TypeId) -> Option<Type> {
+        let info = self.resolved.type_infos.get(type_id.0 as usize)?;
+        match &info.kind {
+            TypeKind::Newtype(inner) => Some(inner.clone()),
+            _ => None,
+        }
+    }
+
     fn check_constructor_payload(
         &mut self,
         ctor_name: &str,
@@ -1565,7 +1728,13 @@ impl<'a> Checker<'a> {
                     .iter()
                     .map(|(name, _)| (name.clone(), span))
                     .collect();
-                self.validate_record_field_set(span, expected_fields, &provided, "constructor");
+                self.validate_record_field_set(
+                    span,
+                    expected_fields,
+                    &provided,
+                    "constructor",
+                    None,
+                );
                 for (name, value) in values {
                     if let Some(expected) = expected_fields.iter().find(|f| f.name == *name)
                         && !self.is_assignable(&expected.ty, &value.ty)
@@ -1603,6 +1772,7 @@ impl<'a> Checker<'a> {
 
     fn check_constructor_pattern_payload(
         &mut self,
+        ctor_name: &str,
         variant_id: VariantId,
         positional_args: &[Pattern],
         record_fields: &[RecordPatternField],
@@ -1630,8 +1800,9 @@ impl<'a> Checker<'a> {
         match &expected_payload {
             VariantPayload::None => {
                 if !positional_args.is_empty() || !record_fields.is_empty() {
-                    self.diagnostics.error_with_note(
+                    self.diagnostics.error_with_note_code(
                         span,
+                        DIAG_TYP_CONSTRUCTOR_PATTERN_PAYLOAD,
                         "constructor pattern takes no payload",
                         span,
                         "remove the payload and use the nullary constructor pattern",
@@ -1641,16 +1812,37 @@ impl<'a> Checker<'a> {
             }
             VariantPayload::Positional(expected_tys) => {
                 if !record_fields.is_empty() {
-                    self.diagnostics.error_with_note(
+                    self.diagnostics.error_with_note_code(
                         span,
+                        DIAG_TYP_CONSTRUCTOR_PATTERN_PAYLOAD,
                         "constructor pattern requires positional arguments",
                         span,
-                        "use `Ctor(a, b, ...)` pattern syntax for this constructor",
+                        format!(
+                            "use `{}` pattern syntax for this constructor",
+                            format_constructor_pattern_positional_example(
+                                ctor_name,
+                                expected_tys.len()
+                            )
+                        ),
                     );
+                    for field in record_fields {
+                        if let Some(pattern) = &field.pattern {
+                            let _ = self.check_pattern(pattern, &Type::Error);
+                        } else {
+                            let _ = self.alloc_local(
+                                field.name.clone(),
+                                Type::Error,
+                                false,
+                                field.span,
+                            );
+                        }
+                    }
+                    return TirPatternVariantPayload::Positional(Vec::new());
                 }
                 if expected_tys.len() != positional_args.len() {
-                    self.diagnostics.error_with_note(
+                    self.diagnostics.error_with_note_code(
                         span,
+                        DIAG_TYP_CONSTRUCTOR_PATTERN_PAYLOAD,
                         format!(
                             "constructor pattern argument count mismatch: expected {}, got {}",
                             expected_tys.len(),
@@ -1658,8 +1850,11 @@ impl<'a> Checker<'a> {
                         ),
                         span,
                         format!(
-                            "this pattern expects {} positional value(s)",
-                            expected_tys.len()
+                            "try `{}`",
+                            format_constructor_pattern_positional_example(
+                                ctor_name,
+                                expected_tys.len()
+                            )
                         ),
                     );
                 }
@@ -1675,12 +1870,20 @@ impl<'a> Checker<'a> {
             }
             VariantPayload::Record(expected_fields) => {
                 if !positional_args.is_empty() {
-                    self.diagnostics.error_with_note(
+                    self.diagnostics.error_with_note_code(
                         span,
+                        DIAG_TYP_CONSTRUCTOR_PATTERN_PAYLOAD,
                         "constructor pattern requires record payload",
                         span,
-                        "use `Ctor { field = value, ... }` pattern syntax for this constructor",
+                        format!(
+                            "use `{}` pattern syntax for this constructor",
+                            format_constructor_record_pattern_example(ctor_name, expected_fields)
+                        ),
                     );
+                    for pattern in positional_args {
+                        let _ = self.check_pattern(pattern, &Type::Error);
+                    }
+                    return TirPatternVariantPayload::Record(Vec::new());
                 }
                 let provided: Vec<(String, crate::span::Span)> = record_fields
                     .iter()
@@ -1691,6 +1894,7 @@ impl<'a> Checker<'a> {
                     expected_fields,
                     &provided,
                     "constructor pattern",
+                    Some(DIAG_TYP_PATTERN_RECORD_FIELDS),
                 );
                 let fields = record_fields
                     .iter()
@@ -1795,6 +1999,7 @@ impl<'a> Checker<'a> {
         expected_fields: &[crate::types::FieldInfo],
         provided_fields: &[(String, crate::span::Span)],
         context: &str,
+        code: Option<&str>,
     ) {
         let expected_list = if expected_fields.is_empty() {
             "<none>".to_string()
@@ -1828,34 +2033,67 @@ impl<'a> Checker<'a> {
                 } else {
                     format!("expected fields: {}", expected_list)
                 };
-                self.diagnostics.error_with_note(
-                    *field_span,
-                    format!("unknown field '{}' in {}", name, context),
-                    span,
-                    note,
-                );
+                if let Some(code) = code {
+                    self.diagnostics.error_with_note_code(
+                        *field_span,
+                        code,
+                        format!("unknown field '{}' in {}", name, context),
+                        span,
+                        note,
+                    );
+                } else {
+                    self.diagnostics.error_with_note(
+                        *field_span,
+                        format!("unknown field '{}' in {}", name, context),
+                        span,
+                        note,
+                    );
+                }
             }
             if !seen.insert(name.clone()) {
-                self.diagnostics.error_with_note(
-                    *field_span,
-                    format!("duplicate field '{}' in {}", name, context),
-                    *field_span,
-                    format!("remove one of the duplicate '{}' fields", name),
-                );
+                if let Some(code) = code {
+                    self.diagnostics.error_with_note_code(
+                        *field_span,
+                        code,
+                        format!("duplicate field '{}' in {}", name, context),
+                        *field_span,
+                        format!("remove one of the duplicate '{}' fields", name),
+                    );
+                } else {
+                    self.diagnostics.error_with_note(
+                        *field_span,
+                        format!("duplicate field '{}' in {}", name, context),
+                        *field_span,
+                        format!("remove one of the duplicate '{}' fields", name),
+                    );
+                }
             }
         }
 
         for expected in expected_fields {
             if !seen.contains(&expected.name) {
-                self.diagnostics.error_with_note(
-                    span,
-                    format!("missing field '{}' in {}", expected.name, context),
-                    span,
-                    format!(
-                        "provided fields: {}; add `{} = ...`",
-                        provided_list, expected.name
-                    ),
-                );
+                if let Some(code) = code {
+                    self.diagnostics.error_with_note_code(
+                        span,
+                        code,
+                        format!("missing field '{}' in {}", expected.name, context),
+                        span,
+                        format!(
+                            "provided fields: {}; add `{} = ...`",
+                            provided_list, expected.name
+                        ),
+                    );
+                } else {
+                    self.diagnostics.error_with_note(
+                        span,
+                        format!("missing field '{}' in {}", expected.name, context),
+                        span,
+                        format!(
+                            "provided fields: {}; add `{} = ...`",
+                            provided_list, expected.name
+                        ),
+                    );
+                }
             }
         }
     }
@@ -2168,6 +2406,101 @@ impl<'a> Checker<'a> {
 
 fn is_numeric(ty: &Type) -> bool {
     matches!(ty, Type::Int | Type::Float | Type::Error)
+}
+
+fn constructor_pattern_key(pattern: &Pattern) -> Option<String> {
+    match &pattern.kind {
+        PatternKind::Constructor { name, args } => Some(format!(
+            "ctor:{}({})",
+            name,
+            args.iter()
+                .map(pattern_semantic_key)
+                .collect::<Vec<_>>()
+                .join(",")
+        )),
+        PatternKind::RecordConstructor { name, fields } => {
+            let mut keyed_fields = fields
+                .iter()
+                .map(|field| {
+                    let value = field
+                        .pattern
+                        .as_ref()
+                        .map(pattern_semantic_key)
+                        .unwrap_or_else(|| "_".to_string());
+                    format!("{}={}", field.name, value)
+                })
+                .collect::<Vec<_>>();
+            keyed_fields.sort();
+            Some(format!("ctor:{}{{{}}}", name, keyed_fields.join(",")))
+        }
+        _ => None,
+    }
+}
+
+fn pattern_semantic_key(pattern: &Pattern) -> String {
+    match &pattern.kind {
+        PatternKind::Wildcard | PatternKind::Bind { .. } => "_".to_string(),
+        PatternKind::Int { value } => format!("int:{value}"),
+        PatternKind::Bool { value } => format!("bool:{value}"),
+        PatternKind::String { value } => format!("str:{value:?}"),
+        PatternKind::Constructor { name, args } => format!(
+            "ctor:{}({})",
+            name,
+            args.iter()
+                .map(pattern_semantic_key)
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
+        PatternKind::RecordConstructor { name, fields } => {
+            let mut keyed_fields = fields
+                .iter()
+                .map(|field| {
+                    let value = field
+                        .pattern
+                        .as_ref()
+                        .map(pattern_semantic_key)
+                        .unwrap_or_else(|| "_".to_string());
+                    format!("{}={}", field.name, value)
+                })
+                .collect::<Vec<_>>();
+            keyed_fields.sort();
+            format!("ctor:{}{{{}}}", name, keyed_fields.join(","))
+        }
+    }
+}
+
+fn variant_payload_is_irrefutable(payload: &TirPatternVariantPayload) -> bool {
+    match payload {
+        TirPatternVariantPayload::None => true,
+        TirPatternVariantPayload::Positional(args) => args.iter().all(pattern_is_irrefutable),
+        TirPatternVariantPayload::Record(fields) => fields
+            .iter()
+            .all(|(_, pattern)| pattern_is_irrefutable(pattern)),
+    }
+}
+
+fn pattern_is_irrefutable(pattern: &TirPattern) -> bool {
+    matches!(pattern, TirPattern::Wildcard | TirPattern::Bind(_))
+}
+
+fn format_constructor_pattern_positional_example(name: &str, arity: usize) -> String {
+    let args = (0..arity).map(|_| "_").collect::<Vec<_>>().join(", ");
+    format!("{name}({args})")
+}
+
+fn format_constructor_record_pattern_example(
+    name: &str,
+    fields: &[crate::types::FieldInfo],
+) -> String {
+    if fields.is_empty() {
+        return format!("{name} {{}}");
+    }
+    let fields = fields
+        .iter()
+        .map(|field| format!("{} = _", field.name))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{name} {{ {fields} }}")
 }
 
 fn format_constructor_positional_example(name: &str, arity: usize) -> String {

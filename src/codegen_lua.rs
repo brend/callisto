@@ -297,6 +297,7 @@ impl<'a> LuaEmitter<'a> {
                 variant_id,
                 payload,
             } => self.emit_variant_init(*variant_id, payload, locals),
+            TirExprKind::NewtypeWrap { value } => self.emit_expr(value, locals),
             TirExprKind::Lambda { params, body } => {
                 let mut child_locals = locals.clone();
                 let param_names = params

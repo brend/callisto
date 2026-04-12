@@ -47,6 +47,7 @@ pub struct TypeInfo {
 #[derive(Debug, Clone)]
 pub enum TypeKind {
     Alias(Type),
+    Newtype(Type),
     Record(Vec<FieldInfo>),
     Sum(Vec<VariantInfo>),
     ExternOpaque,

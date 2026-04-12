@@ -1983,6 +1983,160 @@ end
     }
 
     #[test]
+    fn reports_duplicate_constructor_match_arm() {
+        let source = r#"
+type MaybeInt = | None | Some(Int)
+
+fn main(m: MaybeInt) -> Int do
+  match m do
+    case Some(x) => x
+    case Some(_) => 0
+    case None => 0
+  end
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.code.as_deref() == Some("CAL-TYP-031")
+                && d.message.contains("duplicate constructor match arm")
+                && d.notes
+                    .iter()
+                    .any(|(_, note)| note.contains("already covered by this earlier arm"))
+        }));
+    }
+
+    #[test]
+    fn reports_unreachable_match_arm_after_catch_all() {
+        let source = r#"
+fn main(x: Int) -> Int do
+  match x do
+    case _ => 0
+    case 1 => 1
+  end
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.code.as_deref() == Some("CAL-TYP-032")
+                && d.message.contains("unreachable match arm")
+                && d.notes
+                    .iter()
+                    .any(|(_, note)| note.contains("already cover all remaining cases"))
+        }));
+    }
+
+    #[test]
+    fn reports_non_exhaustive_match_for_bool_cases() {
+        let source = r#"
+fn main(flag: Bool) -> Int do
+  match flag do
+    case true => 1
+  end
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.code.as_deref() == Some("CAL-TYP-030")
+                && d.message
+                    .contains("non-exhaustive match, missing cases: false")
+        }));
+    }
+
+    #[test]
+    fn complete_bool_match_flags_following_arm_as_unreachable() {
+        let source = r#"
+fn main(flag: Bool) -> Int do
+  match flag do
+    case true => 1
+    case false => 0
+    case _ => 2
+  end
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert_eq!(
+            type_diags
+                .items
+                .iter()
+                .filter(|d| d.code.as_deref() == Some("CAL-TYP-032"))
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn complete_sum_match_flags_following_arm_as_unreachable_without_duplicate_cascade() {
+        let source = r#"
+type MaybeInt = | None | Some(Int)
+
+fn main(m: MaybeInt) -> Int do
+  match m do
+    case Some(_) => 1
+    case None => 0
+    case Some(x) => x
+  end
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert_eq!(
+            type_diags
+                .items
+                .iter()
+                .filter(|d| d.code.as_deref() == Some("CAL-TYP-032"))
+                .count(),
+            1
+        );
+        assert_eq!(
+            type_diags
+                .items
+                .iter()
+                .filter(|d| d.code.as_deref() == Some("CAL-TYP-031"))
+                .count(),
+            0
+        );
+    }
+
+    #[test]
     fn infers_generic_function_call_type_parameters() {
         let source = r#"
 fn id[T](x: T) -> T do
@@ -3311,6 +3465,49 @@ end
     }
 
     #[test]
+    fn parser_accepts_newtype_declarations() {
+        let source = r#"
+newtype UserId = Int
+newtype Box[T] = T
+
+fn make() -> UserId do
+  UserId(1)
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+    }
+
+    #[test]
+    fn malformed_newtype_reports_parser_error() {
+        let source = r#"
+newtype UserId Int
+
+fn main() -> Int do
+  0
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (_, parse_diags) = parser::parse(tokens);
+        assert!(parse_diags.has_errors());
+        assert!(
+            parse_diags
+                .items
+                .iter()
+                .any(|d| { d.message.contains("expected '=' in newtype declaration") })
+        );
+    }
+
+    #[test]
     fn malformed_multiline_sum_reports_parser_error() {
         let source = r#"
 type Option[T] =
@@ -3476,6 +3673,146 @@ end
                 && d.notes
                     .iter()
                     .any(|(_, note)| note.contains("remove the payload"))
+        }));
+    }
+
+    #[test]
+    fn constructor_pattern_record_payload_shape_mismatch_is_non_cascading() {
+        let source = r#"
+type MoveMsg = | Move(Int, Int)
+
+fn main(msg: MoveMsg) -> Int do
+  match msg do
+    case Move { x, y } => x
+  end
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert_eq!(
+            type_diags
+                .items
+                .iter()
+                .filter(|d| d.code.as_deref() == Some("CAL-TYP-023"))
+                .count(),
+            1
+        );
+        assert!(type_diags.items.iter().any(|d| {
+            d.code.as_deref() == Some("CAL-TYP-023")
+                && d.message
+                    .contains("constructor pattern requires positional arguments")
+        }));
+        assert!(!type_diags.items.iter().any(|d| {
+            d.message
+                .contains("constructor pattern argument count mismatch")
+        }));
+    }
+
+    #[test]
+    fn constructor_pattern_positional_payload_shape_mismatch_is_non_cascading() {
+        let source = r#"
+type Shape = | Rect { w: Int, h: Int }
+
+fn main(s: Shape) -> Int do
+  match s do
+    case Rect(w, h) => w
+  end
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert_eq!(
+            type_diags
+                .items
+                .iter()
+                .filter(|d| d.code.as_deref() == Some("CAL-TYP-023"))
+                .count(),
+            1
+        );
+        assert!(type_diags.items.iter().any(|d| {
+            d.code.as_deref() == Some("CAL-TYP-023")
+                && d.message
+                    .contains("constructor pattern requires record payload")
+        }));
+        assert!(!type_diags.items.iter().any(|d| {
+            d.message
+                .contains("missing field 'w' in constructor pattern")
+                || d.message
+                    .contains("missing field 'h' in constructor pattern")
+        }));
+    }
+
+    #[test]
+    fn constructor_pattern_arity_mismatch_has_fixit_shape() {
+        let source = r#"
+type MoveMsg = | Move(Int, Int)
+
+fn main(msg: MoveMsg) -> Int do
+  match msg do
+    case Move(x) => x
+  end
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.code.as_deref() == Some("CAL-TYP-023")
+                && d.message
+                    .contains("constructor pattern argument count mismatch")
+                && d.notes
+                    .iter()
+                    .any(|(_, note)| note.contains("try `Move(_, _)`"))
+        }));
+    }
+
+    #[test]
+    fn constructor_pattern_record_field_typos_have_fixit_and_code() {
+        let source = r#"
+type Shape = | Rect { width: Int, height: Int }
+
+fn main(s: Shape) -> Int do
+  match s do
+    case Rect { widht } => widht
+  end
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.code.as_deref() == Some("CAL-TYP-024")
+                && d.message
+                    .contains("unknown field 'widht' in constructor pattern")
+                && d.notes
+                    .iter()
+                    .any(|(_, note)| note.contains("did you mean 'width'"))
         }));
     }
 
@@ -3809,6 +4146,34 @@ end
     }
 
     #[test]
+    fn type_aliases_compile_and_codegen_like_underlying_types() {
+        let source = r#"
+type Distance = Int
+
+fn inc(d: Distance) -> Distance do
+  d + 1
+end
+
+fn main() -> Distance do
+  inc(41)
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (tir, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+
+        let lua = codegen_lua::emit_lua_module(&tir, &resolved);
+        assert!(lua.contains("inc = function(d)"), "{lua}");
+        assert!(lua.contains("return inc(41)"), "{lua}");
+    }
+
+    #[test]
     fn transparent_aliases_work_for_assignability_and_control_flow() {
         let source = r#"
 type Distance = Int
@@ -3856,6 +4221,149 @@ end
         assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
         let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
         assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+    }
+
+    #[test]
+    fn newtype_constructor_compiles_and_codegen_is_zero_overhead() {
+        let source = r#"
+newtype UserId = Int
+
+fn make() -> UserId do
+  UserId(42)
+end
+
+fn same(a: UserId, b: UserId) -> Bool do
+  a == b
+end
+
+fn main() -> Int do
+  let a = make()
+  let b = UserId(7)
+  if same(a, b) then
+    1
+  else
+    0
+  end
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (tir, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+
+        let lua = codegen_lua::emit_lua_module(&tir, &resolved);
+        assert!(lua.contains("return 42"), "{lua}");
+        assert!(lua.contains("local l"), "{lua}");
+        assert!(!lua.contains("tag = \"UserId\""), "{lua}");
+    }
+
+    #[test]
+    fn newtype_is_not_assignable_from_underlying_type() {
+        let source = r#"
+newtype UserId = Int
+
+fn takes_user(id: UserId) -> Int do
+  0
+end
+
+fn main() -> Int do
+  takes_user(1)
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.message.contains("argument 1 expects") && d.message.contains("but got Int")
+        }));
+    }
+
+    #[test]
+    fn generic_newtype_infers_from_payload_but_errors_when_unconstrained() {
+        let ok_source = r#"
+newtype Box[T] = T
+
+fn make() -> Box[Int] do
+  Box(1)
+end
+
+fn main() -> Unit do
+  let a: Box[Int] = Box(2)
+  let b = make()
+  let _ = a == b
+  ()
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, ok_source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+
+        let bad_source = r#"
+newtype Phantom[T] = Int
+
+fn main() -> Unit do
+  let p = Phantom(1)
+  ()
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, bad_source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.message.contains("could not infer generic type parameter")
+                && d.message.contains("newtype 'Phantom'")
+        }));
+    }
+
+    #[test]
+    fn newtype_record_initializer_form_reports_constructor_hint() {
+        let source = r#"
+newtype UserId = Int
+
+fn main() -> Unit do
+  let x = UserId { value = 1 }
+  ()
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.message
+                .contains("type 'UserId' is a newtype, not a record type")
+                && d.notes
+                    .iter()
+                    .any(|(_, note)| note.contains("construct it with `UserId(value)`"))
+        }));
     }
 
     #[test]
@@ -3985,6 +4493,60 @@ end
     }
 
     #[test]
+    fn diagnostics_golden_constructor_pattern_shape_mismatch() {
+        let source = r#"
+type MoveMsg = | Move(Int, Int)
+
+fn main(msg: MoveMsg) -> Int do
+  match msg do
+    case Move { x, y } => x
+  end
+end
+"#;
+        assert_diagnostics_golden(
+            "constructor_pattern_shape_mismatch",
+            "golden_constructor_pattern_shape_mismatch.luna",
+            source,
+        );
+    }
+
+    #[test]
+    fn diagnostics_golden_constructor_pattern_arity_mismatch() {
+        let source = r#"
+type MoveMsg = | Move(Int, Int)
+
+fn main(msg: MoveMsg) -> Int do
+  match msg do
+    case Move(x) => x
+  end
+end
+"#;
+        assert_diagnostics_golden(
+            "constructor_pattern_arity_mismatch",
+            "golden_constructor_pattern_arity_mismatch.luna",
+            source,
+        );
+    }
+
+    #[test]
+    fn diagnostics_golden_constructor_pattern_field_typo() {
+        let source = r#"
+type Shape = | Rect { width: Int, height: Int }
+
+fn main(s: Shape) -> Int do
+  match s do
+    case Rect { widht } => widht
+  end
+end
+"#;
+        assert_diagnostics_golden(
+            "constructor_pattern_field_typo",
+            "golden_constructor_pattern_field_typo.luna",
+            source,
+        );
+    }
+
+    #[test]
     fn diagnostics_golden_imported_module_member_missing() {
         let source = r#"
 import foo.bar
@@ -4028,6 +4590,59 @@ end
         assert_diagnostics_golden(
             "non_exhaustive_match",
             "golden_non_exhaustive_match.luna",
+            source,
+        );
+    }
+
+    #[test]
+    fn diagnostics_golden_bool_non_exhaustive_match() {
+        let source = r#"
+fn main(flag: Bool) -> Int do
+  match flag do
+    case true => 1
+  end
+end
+"#;
+        assert_diagnostics_golden(
+            "bool_non_exhaustive_match",
+            "golden_bool_non_exhaustive_match.luna",
+            source,
+        );
+    }
+
+    #[test]
+    fn diagnostics_golden_duplicate_constructor_match_arm() {
+        let source = r#"
+type MaybeInt = | None | Some(Int)
+
+fn main(m: MaybeInt) -> Int do
+  match m do
+    case Some(v) => v
+    case Some(_) => 0
+    case None => 0
+  end
+end
+"#;
+        assert_diagnostics_golden(
+            "duplicate_constructor_match_arm",
+            "golden_duplicate_constructor_match_arm.luna",
+            source,
+        );
+    }
+
+    #[test]
+    fn diagnostics_golden_unreachable_match_arm() {
+        let source = r#"
+fn main(value: Int) -> Int do
+  match value do
+    case _ => 0
+    case 1 => 1
+  end
+end
+"#;
+        assert_diagnostics_golden(
+            "unreachable_match_arm",
+            "golden_unreachable_match_arm.luna",
             source,
         );
     }

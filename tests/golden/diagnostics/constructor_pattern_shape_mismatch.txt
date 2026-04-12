@@ -1,0 +1,2 @@
+golden_constructor_pattern_shape_mismatch.luna:6:10: error[CAL-TYP-023]: constructor pattern requires positional arguments
+  note at golden_constructor_pattern_shape_mismatch.luna:6:10: use `Move(_, _)` pattern syntax for this constructor

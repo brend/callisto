@@ -1,0 +1,2 @@
+golden_unreachable_match_arm.luna:5:10: error[CAL-TYP-032]: unreachable match arm
+  note at golden_unreachable_match_arm.luna:5:10: this arm is never selected because earlier arms already cover all remaining cases

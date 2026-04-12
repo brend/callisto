@@ -57,6 +57,7 @@ pub struct TypeDecl {
 #[derive(Debug, Clone)]
 pub enum TypeDeclBody {
     Alias(TypeExpr),
+    Newtype(TypeExpr),
     Record(Vec<RecordFieldType>),
     Sum(Vec<SumVariantDecl>),
 }

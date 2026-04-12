@@ -69,6 +69,8 @@ end
 ```cal
 type Distance = Int
 
+newtype UserId = Int
+
 type Vec2 { x: Float, y: Float }
 
 type Option[T] =
@@ -81,6 +83,7 @@ type Shape =
 ```
 
 - Generic params use `[T, U]`.
+- `newtype Name = Inner` declares a nominal wrapper distinct from `Inner`.
 - Sum variants can be:
 - No payload: `None`
 - Positional payload: `Some(T)`
@@ -217,6 +220,7 @@ Unary operators: `-x`, `not x`.
 - Constructors are parsed from uppercase identifiers (`Some`, `None`, `Circle`).
 - Record/constructor field initializers use `=` (not `:`): `{ x = 1 }`.
 - Record initializers support punning: `{ x }` is equivalent to `{ x = x }`.
+- Newtype constructors use one positional argument: `UserId(42)`.
 - Type fields use `:` (not `=`): `{ x: Int }`.
 - `Int not` and `Nil` are only valid in extern type positions.
 - `import` declarations must appear before top-level declarations.

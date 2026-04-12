@@ -12,6 +12,7 @@ pub enum TokenKind {
     KwPub,
     KwExtern,
     KwType,
+    KwNewtype,
     KwFn,
     KwImpl,
     KwLet,
@@ -86,6 +87,7 @@ pub fn keyword_kind(s: &str) -> Option<TokenKind> {
         "pub" => TokenKind::KwPub,
         "extern" => TokenKind::KwExtern,
         "type" => TokenKind::KwType,
+        "newtype" => TokenKind::KwNewtype,
         "fn" => TokenKind::KwFn,
         "impl" => TokenKind::KwImpl,
         "let" => TokenKind::KwLet,
@@ -121,6 +123,7 @@ mod tests {
     fn recognizes_keywords_and_non_keywords() {
         assert_eq!(keyword_kind("fn"), Some(TokenKind::KwFn));
         assert_eq!(keyword_kind("match"), Some(TokenKind::KwMatch));
+        assert_eq!(keyword_kind("newtype"), Some(TokenKind::KwNewtype));
         assert_eq!(keyword_kind("nope"), None);
     }
 

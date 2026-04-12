@@ -1,0 +1,2 @@
+golden_duplicate_constructor_match_arm.luna:7:10: error[CAL-TYP-031]: duplicate constructor match arm
+  note at golden_duplicate_constructor_match_arm.luna:6:10: constructor pattern already covered by this earlier arm

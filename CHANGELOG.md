@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-04-12
+
 ### Added
 - `v0.6` draft planning docs centered on language completeness:
   - `docs/v0_6_draft_plan.md`
@@ -23,6 +25,16 @@ All notable changes to this project will be documented in this file.
 - Type diagnostics now include stronger fix-it notes for common mistakes:
   - constructor argument arity mismatch includes a suggested constructor call shape
   - unknown/duplicate/missing record fields include more actionable correction notes
+- Added nominal `newtype` declarations (`newtype Name = Inner`) with constructor support (`Name(value)`).
+- Newtype values now remain nominally distinct from their underlying types in assignability checks.
+- Match analysis now reports duplicate constructor arms (`CAL-TYP-031`) and unreachable arms (`CAL-TYP-032`) with actionable notes.
+- Bool `match` exhaustiveness now reports missing literal cases under `CAL-TYP-030`.
+- Added regression and golden diagnostics coverage for duplicate/unreachable/bool match-analysis paths.
+- Constructor-pattern diagnostics now include stable error codes:
+  - `CAL-TYP-023` for pattern payload-shape mismatches and constructor-pattern arity mismatch fix-its.
+  - `CAL-TYP-024` for constructor-pattern record-field unknown/duplicate/missing diagnostics.
+- Constructor-pattern shape errors now avoid noisy cascades while still binding pattern locals in error paths.
+- Expanded v0.6 language conformance matrix with concrete parser/typechecker/codegen test references across declarations, expressions, patterns, modules, and extern interop.
 
 ## [0.5.0] - 2026-04-12
 
