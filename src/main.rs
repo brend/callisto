@@ -2681,6 +2681,63 @@ end
     }
 
     #[test]
+    fn parses_multiline_and_single_line_sum_declarations() {
+        let source = r#"
+type Option[T] =
+  | None
+  | Some(T)
+
+type Status = | Idle | Busy
+
+fn choose(flag: Bool) -> Option[Int] do
+  if flag then
+    Some(1)
+  else
+    None
+  end
+end
+
+fn status() -> Status do
+  Idle
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+    }
+
+    #[test]
+    fn malformed_multiline_sum_reports_parser_error() {
+        let source = r#"
+type Option[T] =
+  |
+
+fn main() -> Int do
+  0
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (_, parse_diags) = parser::parse(tokens);
+        assert!(parse_diags.has_errors());
+        assert!(
+            parse_diags
+                .items
+                .iter()
+                .any(|d| d.message.contains("expected variant name")),
+            "{:?}",
+            parse_diags.items
+        );
+    }
+
+    #[test]
     fn functions_are_predeclared_for_forward_references() {
         let source = r#"
 fn main() -> Int do
@@ -2947,6 +3004,83 @@ end
 fn main() -> Int do
   let a: Option[Int] = None
   takes(None) + takes(a)
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+    }
+
+    #[test]
+    fn nullary_generic_constructor_infers_in_record_initializer_field_context() {
+        let source = r#"
+type Option[T] = | None | Some(T)
+type Wrapper { value: Option[Int] }
+
+fn make() -> Wrapper do
+  Wrapper { value = None }
+end
+
+fn main() -> Int do
+  match make().value do
+    case Some(v) => v
+    case None => 0
+  end
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+    }
+
+    #[test]
+    fn nullary_generic_constructor_infers_in_constructor_payload_context() {
+        let source = r#"
+type Option[T] = | None | Some(T)
+type Wrapped = | Wrapped(Option[Int])
+
+fn make() -> Wrapped do
+  Wrapped(None)
+end
+
+fn main() -> Int do
+  match make() do
+    case Wrapped(Some(v)) => v
+    case Wrapped(None) => 0
+  end
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+    }
+
+    #[test]
+    fn nullary_generic_constructor_infers_in_record_update_field_context() {
+        let source = r#"
+type Option[T] = | None | Some(T)
+type State { value: Option[Int] }
+
+fn clear(s: State) -> State do
+  s with { value = None }
 end
 "#;
 

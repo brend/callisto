@@ -144,7 +144,9 @@ return M
 ```
 module option
 
-type Option[T] = | None | Some(T)
+type Option[T] =
+  | None
+  | Some(T)
 
 impl Option do
   fn unwrap_or(self: Option[Int], fallback: Int) -> Int do
@@ -280,3 +282,8 @@ v0.3 release completion and v0.4 planning are tracked in:
 - [`docs/v0_3_draft_plan.md`](docs/v0_3_draft_plan.md)
 - [`docs/v0_3_m4_release_checklist.md`](docs/v0_3_m4_release_checklist.md)
 - [`docs/v0_4_draft_plan.md`](docs/v0_4_draft_plan.md)
+- [`docs/v0_4_m0_scope_freeze_checklist.md`](docs/v0_4_m0_scope_freeze_checklist.md)
+- [`docs/v0_4_m1_sample_depth_execution_checklist.md`](docs/v0_4_m1_sample_depth_execution_checklist.md)
+- [`docs/v0_4_m2_parser_ergonomics_execution_checklist.md`](docs/v0_4_m2_parser_ergonomics_execution_checklist.md)
+- [`docs/v0_4_m3_type_inference_execution_checklist.md`](docs/v0_4_m3_type_inference_execution_checklist.md)
+- [`docs/v0_4_m4_release_checklist.md`](docs/v0_4_m4_release_checklist.md)

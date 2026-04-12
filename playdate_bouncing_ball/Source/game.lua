@@ -100,18 +100,18 @@ end
 
 render = function(ball)
     local l39 = choose_mode()
-    playdate.graphics.clear()
-    playdate.graphics.drawText("O", ball.x, ball.y)
-    playdate.graphics.drawText(mode_label(l39), 8, 8)
-    playdate.graphics.drawText("A hold: d-pad mode", 8, 24)
-    playdate.graphics.drawText("B: reset ball", 8, 40)
-    playdate.graphics.drawText(crank_side_label(), 8, 56)
+    local _ = playdate.graphics.clear()
+    local _ = playdate.graphics.drawText("O", ball.x, ball.y)
+    local _ = playdate.graphics.drawText(mode_label(l39), 8, 8)
+    local _ = playdate.graphics.drawText("A hold: d-pad mode", 8, 24)
+    local _ = playdate.graphics.drawText("B: reset ball", 8, 40)
+    local _ = playdate.graphics.drawText(crank_side_label(), 8, 56)
     return nil
 end
 
 step = function(ball, crank_delta)
     local l42 = choose_mode()
-    return (function(__scrutinee) if __scrutinee.tag == "Continue" and true and true then local l43 = __scrutinee._1 local l44 = __scrutinee._2 play_sfx(l44); return l43 elseif __scrutinee.tag == "Reset" then playdate.audio.reset_chime(); return spawn_ball() else error("non-exhaustive match") end end)(decide_step(ball, l42, crank_delta))
+    return (function(__scrutinee) if __scrutinee.tag == "Continue" and true and true then local l43 = __scrutinee._1 local l44 = __scrutinee._2 local _ = play_sfx(l44); return l43 elseif __scrutinee.tag == "Reset" then local _ = playdate.audio.reset_chime(); return spawn_ball() else error("non-exhaustive match") end end)(decide_step(ball, l42, crank_delta))
 end
 
 Ball_moved = function(self, dx, dy)

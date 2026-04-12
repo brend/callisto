@@ -4,12 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-04-12
+
 ### Added
 - `v0.4` draft planning document with scope candidates carried over from post-`v0.3.0` follow-on work.
+- `v0.4` execution-board docs (`M0` scope freeze, `M1` sample depth, `M2` parser ergonomics, `M3` type inference, `M4` release gate) plus README planning links.
 
 ### Changed
 - `v0.3` release checklist marked complete after maintainer review and post-release planning moved to `v0.4`.
 - Repository metadata/docs now align with the completed `v0.3.0` release (`Cargo.toml` version and README release-planning links).
+- `playdate_auto_bootstrap` now uses explicit `buttonJustPressed` scene transitions (`A` next, `B` previous) and persists session counters (`ticks`, scene changes, per-scene frame totals) in its model.
+- Parser now accepts multiline sum-type declarations after `=` (for example `type Option[T] =` followed by `|` variants on subsequent lines) while preserving existing single-line syntax.
+- Type inference now propagates contextual field/payload types into nested expressions, reducing annotation needs for nullary generic constructors (for example `None`) inside record initializers, constructor payloads, and record updates.
 
 ## [0.3.0] - 2026-04-04
 

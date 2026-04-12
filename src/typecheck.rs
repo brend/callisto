@@ -1004,24 +1004,29 @@ impl<'a> Checker<'a> {
         expected: Option<&Type>,
     ) -> TirExpr {
         if let Some(variant_id) = self.resolved.variant_names.get(type_name).copied() {
-            let payload = TirVariantPayload::Record(
-                fields
-                    .iter()
-                    .map(|f| (f.name.clone(), self.check_expr(&f.value)))
-                    .collect(),
-            );
             if let Some(ty_id) = self.resolved.variant_to_type.get(&variant_id).copied() {
+                let expected_args = self.expected_named_type_args(expected, ty_id);
+                let mut subst = self.seed_subst_from_expected_args(ty_id, expected_args.as_deref());
+                let hinted_payload = self
+                    .variant_info(variant_id)
+                    .map(|(_, raw)| self.instantiate_variant_payload(&raw, &subst));
+                let hinted_fields = match hinted_payload.as_ref() {
+                    Some(VariantPayload::Record(fields)) => Some(fields.as_slice()),
+                    _ => None,
+                };
+                let payload = TirVariantPayload::Record(
+                    self.check_record_fields_with_expected(fields, hinted_fields),
+                );
+
                 if let Some((_, expected_payload_raw)) = self.variant_info(variant_id) {
-                    let mut subst: HashMap<TypeParamId, Type> = HashMap::new();
                     infer_variant_payload_type_params(&expected_payload_raw, &payload, &mut subst);
                     let context = format!("constructor '{}'", type_name);
-                    let expected_args = self.expected_named_type_args(expected, ty_id);
                     let type_args = self.finalize_inferred_type_args(
                         ty_id,
                         &mut subst,
                         span,
                         &context,
-                        expected_args,
+                        expected_args.clone(),
                     );
                     let expected_payload =
                         self.instantiate_variant_payload(&expected_payload_raw, &subst);
@@ -1036,9 +1041,8 @@ impl<'a> Checker<'a> {
                     );
                 }
 
-                let fallback_args = self
-                    .expected_named_type_args(expected, ty_id)
-                    .unwrap_or_else(|| self.default_type_args_for_type(ty_id));
+                let fallback_args =
+                    expected_args.unwrap_or_else(|| self.default_type_args_for_type(ty_id));
                 return self.mk_expr(
                     Type::Named(ty_id, fallback_args),
                     TirExprKind::VariantInit {
@@ -1055,29 +1059,27 @@ impl<'a> Checker<'a> {
             return self.mk_expr(Type::Error, TirExprKind::Unit);
         };
 
-        let record_fields: Vec<(String, TirExpr)> = fields
-            .iter()
-            .map(|f| (f.name.clone(), self.check_expr(&f.value)))
-            .collect();
         let mut type_args = self.default_type_args_for_type(type_id);
-
-        if let Some(TypeInfo {
-            kind: TypeKind::Record(expected_fields),
+        let record_fields = if let Some(TypeInfo {
+            kind: TypeKind::Record(expected_fields_raw),
             ..
-        }) = self.resolved.type_infos.get(type_id.0 as usize)
+        }) = self.resolved.type_infos.get(type_id.0 as usize).cloned()
         {
-            let mut subst: HashMap<TypeParamId, Type> = HashMap::new();
-            infer_record_field_type_params(expected_fields, &record_fields, &mut subst);
-            let context = format!("record initializer '{}'", type_name);
             let expected_args = self.expected_named_type_args(expected, type_id);
+            let mut subst = self.seed_subst_from_expected_args(type_id, expected_args.as_deref());
+            let hinted_fields = self.instantiate_record_fields(&expected_fields_raw, &subst);
+            let record_fields =
+                self.check_record_fields_with_expected(fields, Some(hinted_fields.as_slice()));
+            infer_record_field_type_params(&expected_fields_raw, &record_fields, &mut subst);
+            let context = format!("record initializer '{}'", type_name);
             type_args = self.finalize_inferred_type_args(
                 type_id,
                 &mut subst,
                 span,
                 &context,
-                expected_args,
+                expected_args.clone(),
             );
-            let expected_fields = self.instantiate_record_fields(expected_fields, &subst);
+            let expected_fields = self.instantiate_record_fields(&expected_fields_raw, &subst);
 
             let provided: Vec<(String, crate::span::Span)> =
                 fields.iter().map(|f| (f.name.clone(), f.span)).collect();
@@ -1095,10 +1097,12 @@ impl<'a> Checker<'a> {
                     );
                 }
             }
+            record_fields
         } else {
             self.diagnostics
                 .error(span, format!("type '{}' is not a record type", type_name));
-        }
+            self.check_record_fields_with_expected(fields, None)
+        };
 
         self.mk_expr(
             Type::Named(type_id, type_args),
@@ -1120,12 +1124,9 @@ impl<'a> Checker<'a> {
             Some((type_id, type_args)) => (Some(type_id), type_args),
             None => (None, Vec::new()),
         };
-        let updated = fields
-            .iter()
-            .map(|f| (f.name.clone(), self.check_expr(&f.value)))
-            .collect();
 
         let Some(type_id) = type_id else {
+            let updated = self.check_record_fields_with_expected(fields, None);
             self.diagnostics
                 .error(span, "record update base must be a named record type");
             return self.mk_expr(
@@ -1138,13 +1139,15 @@ impl<'a> Checker<'a> {
             );
         };
 
-        if let Some(TypeInfo {
-            kind: TypeKind::Record(expected_fields),
+        let updated = if let Some(TypeInfo {
+            kind: TypeKind::Record(expected_fields_raw),
             ..
-        }) = self.resolved.type_infos.get(type_id.0 as usize)
+        }) = self.resolved.type_infos.get(type_id.0 as usize).cloned()
         {
             let subst = self.type_param_subst(type_id, &type_args);
-            let expected_fields = self.instantiate_record_fields(expected_fields, &subst);
+            let expected_fields = self.instantiate_record_fields(&expected_fields_raw, &subst);
+            let updated =
+                self.check_record_fields_with_expected(fields, Some(expected_fields.as_slice()));
             let expected_list = expected_fields
                 .iter()
                 .map(|f| f.name.clone())
@@ -1170,10 +1173,12 @@ impl<'a> Checker<'a> {
                     );
                 }
             }
+            updated
         } else {
             self.diagnostics
                 .error(span, "record update base must be a record type");
-        }
+            self.check_record_fields_with_expected(fields, None)
+        };
 
         self.mk_expr(
             base_tir.ty.clone(),
@@ -1201,25 +1206,18 @@ impl<'a> Checker<'a> {
             return self.mk_expr(Type::Error, TirExprKind::Unit);
         };
 
-        let payload = match payload {
-            ConstructorPayload::None => TirVariantPayload::None,
-            ConstructorPayload::Positional(exprs) => {
-                TirVariantPayload::Positional(exprs.iter().map(|e| self.check_expr(e)).collect())
-            }
-            ConstructorPayload::Record(fields) => TirVariantPayload::Record(
-                fields
-                    .iter()
-                    .map(|f| (f.name.clone(), self.check_expr(&f.value)))
-                    .collect(),
-            ),
-        };
+        let expected_args = self.expected_named_type_args(expected, type_id);
+        let mut subst = self.seed_subst_from_expected_args(type_id, expected_args.as_deref());
+        let hinted_payload = self
+            .variant_info(variant_id)
+            .map(|(_, raw)| self.instantiate_variant_payload(&raw, &subst));
+        let payload =
+            self.check_constructor_payload_with_expected(payload, hinted_payload.as_ref());
 
         let mut type_args = self.default_type_args_for_type(type_id);
         if let Some((_, expected_payload_raw)) = self.variant_info(variant_id) {
-            let mut subst: HashMap<TypeParamId, Type> = HashMap::new();
             infer_variant_payload_type_params(&expected_payload_raw, &payload, &mut subst);
             let context = format!("constructor '{}'", name);
-            let expected_args = self.expected_named_type_args(expected, type_id);
             type_args = self.finalize_inferred_type_args(
                 type_id,
                 &mut subst,
@@ -1699,6 +1697,76 @@ impl<'a> Checker<'a> {
                     })
                     .collect();
                 TirPatternVariantPayload::Record(fields)
+            }
+        }
+    }
+
+    fn seed_subst_from_expected_args(
+        &self,
+        type_id: TypeId,
+        expected_args: Option<&[Type]>,
+    ) -> HashMap<TypeParamId, Type> {
+        let mut subst = HashMap::new();
+        let Some(expected_args) = expected_args else {
+            return subst;
+        };
+        if let Some(info) = self.resolved.type_infos.get(type_id.0 as usize) {
+            for (param, arg) in info.params.iter().zip(expected_args) {
+                subst.insert(*param, arg.clone());
+            }
+        }
+        subst
+    }
+
+    fn check_record_fields_with_expected(
+        &mut self,
+        fields: &[crate::ast::RecordFieldInit],
+        expected_fields: Option<&[crate::types::FieldInfo]>,
+    ) -> Vec<(String, TirExpr)> {
+        fields
+            .iter()
+            .map(|field| {
+                let expected_ty = expected_fields
+                    .and_then(|known| known.iter().find(|entry| entry.name == field.name))
+                    .map(|entry| &entry.ty);
+                (
+                    field.name.clone(),
+                    self.check_expr_with_expected(&field.value, expected_ty),
+                )
+            })
+            .collect()
+    }
+
+    fn check_constructor_payload_with_expected(
+        &mut self,
+        payload: &ConstructorPayload,
+        expected_payload: Option<&VariantPayload>,
+    ) -> TirVariantPayload {
+        match payload {
+            ConstructorPayload::None => TirVariantPayload::None,
+            ConstructorPayload::Positional(exprs) => TirVariantPayload::Positional(
+                exprs
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, expr)| {
+                        let expected_ty = match expected_payload {
+                            Some(VariantPayload::Positional(expected_tys)) => expected_tys.get(idx),
+                            _ => None,
+                        };
+                        self.check_expr_with_expected(expr, expected_ty)
+                    })
+                    .collect(),
+            ),
+            ConstructorPayload::Record(fields) => {
+                let expected_fields = match expected_payload {
+                    Some(VariantPayload::Record(expected_fields)) => {
+                        Some(expected_fields.as_slice())
+                    }
+                    _ => None,
+                };
+                TirVariantPayload::Record(
+                    self.check_record_fields_with_expected(fields, expected_fields),
+                )
             }
         }
     }

@@ -150,7 +150,8 @@ impl Parser {
         let type_params = self.parse_type_param_list();
 
         let body = if self.eat(TokenKind::Eq).is_some() {
-            if self.at(TokenKind::Pipe) {
+            if self.peek_non_newline_kind() == Some(TokenKind::Pipe) {
+                self.skip_newlines();
                 TypeDeclBody::Sum(self.parse_sum_variants())
             } else {
                 TypeDeclBody::Alias(self.parse_type_expr())
@@ -1289,6 +1290,17 @@ impl Parser {
 
     fn peek_kind(&self, n: usize) -> Option<TokenKind> {
         self.tokens.get(self.pos + n).map(|t| t.kind)
+    }
+
+    fn peek_non_newline_kind(&self) -> Option<TokenKind> {
+        let mut idx = self.pos;
+        while let Some(tok) = self.tokens.get(idx) {
+            if tok.kind != TokenKind::Newline {
+                return Some(tok.kind);
+            }
+            idx += 1;
+        }
+        None
     }
 
     fn current(&self) -> &Token {

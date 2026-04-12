@@ -2,12 +2,18 @@
 
 Small Playdate sample that uses Callisto's `--playdate-bootstrap` output mode.
 
-The sample now includes an input-driven multi-scene HUD:
-- default `Splash` view (no A/B held)
-- `Pilot` view while holding `A`
-- `Telemetry` view while holding `B`
+The sample includes an explicit-transition multi-scene HUD:
+- press `A` (just-pressed) to move to the next scene
+- press `B` (just-pressed) to move to the previous scene
+- scene state persists until another transition event occurs
 
-It also displays crank direction and crank-side labels every frame.
+It also tracks persisted session metrics:
+- total ticks (`update` frames)
+- scene transition count
+- accumulated `Pilot`/`Telemetry` frame counts
+- last transition direction
+
+Crank direction and crank-side labels are still rendered every frame.
 
 ## Layout
 
