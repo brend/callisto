@@ -41,6 +41,6 @@ Use this as the release gate before cutting `v0.3.0`.
 
 ## Sign-off
 
-- [ ] Release checklist reviewed by maintainer.
+- [x] Release checklist reviewed by maintainer.
 - [x] Release commit prepared (no unrelated workspace changes).
 - [x] `v0.3.0` announcement notes drafted.

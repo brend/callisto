@@ -14,6 +14,7 @@ This extension adds syntax highlighting for Callisto source files:
 - Parameter declaration scopes (`name: Type`)
 - Function, method, and field access scopes (`foo()`, `obj.method()`, `obj.field`)
 - Operator and punctuation highlighting
+- String interpolation highlighting (`"${expr}"`, including escaped `\${...}` markers)
 - String, number, boolean, wildcard (`_`), and `//` comment highlighting
 
 ## Run Grammar Regression Checks

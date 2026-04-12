@@ -14,18 +14,18 @@ const fixtureLines = fs
   .map((line) => line.trimEnd());
 const expectations = JSON.parse(fs.readFileSync(expectationsPath, "utf8"));
 
-function findPatternByName(node, name) {
+function findPatternByName(node, name, regexKind) {
   if (Array.isArray(node)) {
     for (const child of node) {
-      const found = findPatternByName(child, name);
+      const found = findPatternByName(child, name, regexKind);
       if (found) return found;
     }
     return null;
   }
   if (!node || typeof node !== "object") return null;
-  if (node.name === name && typeof node.match === "string") return node;
+  if (node.name === name && typeof node[regexKind] === "string") return node;
   for (const child of Object.values(node)) {
-    const found = findPatternByName(child, name);
+    const found = findPatternByName(child, name, regexKind);
     if (found) return found;
   }
   return null;
@@ -52,16 +52,27 @@ function nthMatch(regex, input, n) {
 
 let failures = 0;
 for (const test of expectations) {
-  const pattern = findPatternByName(grammar, test.scope);
+  const regexKind = test.regex ?? "match";
+  if (!["match", "begin", "end"].includes(regexKind)) {
+    console.error(
+      `FAIL ${test.name}: unsupported regex kind '${regexKind}' (expected match|begin|end)`
+    );
+    failures += 1;
+    continue;
+  }
+
+  const pattern = findPatternByName(grammar, test.scope, regexKind);
   if (!pattern) {
-    console.error(`FAIL ${test.name}: scope '${test.scope}' not found`);
+    console.error(
+      `FAIL ${test.name}: scope '${test.scope}' with regex '${regexKind}' not found`
+    );
     failures += 1;
     continue;
   }
 
   const line = findFixtureLine(test.sample);
   const occurrence = Number.isInteger(test.occurrence) ? test.occurrence : 1;
-  const regex = new RegExp(pattern.match, "g");
+  const regex = new RegExp(pattern[regexKind], "g");
   const match = nthMatch(regex, line, occurrence);
 
   if (!match) {

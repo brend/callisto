@@ -276,6 +276,7 @@ source → lexer → parser → AST → name resolution → type checking → TI
 
 See [`docs/luna_compiler_architecture_v0_1.md`](docs/luna_compiler_architecture_v0_1.md) for the full design.
 
-v0.2 planning and release execution are tracked in:
-- [`docs/v0_2_draft_plan.md`](docs/v0_2_draft_plan.md)
-- [`docs/v0_2_m4_release_checklist.md`](docs/v0_2_m4_release_checklist.md)
+v0.3 release completion and v0.4 planning are tracked in:
+- [`docs/v0_3_draft_plan.md`](docs/v0_3_draft_plan.md)
+- [`docs/v0_3_m4_release_checklist.md`](docs/v0_3_m4_release_checklist.md)
+- [`docs/v0_4_draft_plan.md`](docs/v0_4_draft_plan.md)

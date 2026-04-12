@@ -73,6 +73,100 @@
             {
               "name": "constant.character.escape.callisto",
               "match": "\\\\."
+            },
+            {
+              "include": "#stringInterpolation"
+            }
+          ]
+        }
+      ]
+    },
+    "stringInterpolation": {
+      "patterns": [
+        {
+          "name": "meta.interpolation.callisto",
+          "begin": "\\$\\{",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.section.interpolation.begin.callisto"
+            }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.interpolation.end.callisto"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#interpolationExpression"
+            }
+          ]
+        }
+      ]
+    },
+    "interpolationExpression": {
+      "patterns": [
+        {
+          "include": "#comments"
+        },
+        {
+          "include": "#strings"
+        },
+        {
+          "include": "#interpolationBraces"
+        },
+        {
+          "include": "#declarations"
+        },
+        {
+          "include": "#moduleImports"
+        },
+        {
+          "include": "#bindings"
+        },
+        {
+          "include": "#callsAndAccess"
+        },
+        {
+          "include": "#parameters"
+        },
+        {
+          "include": "#keywords"
+        },
+        {
+          "include": "#constants"
+        },
+        {
+          "include": "#typesAndConstructors"
+        },
+        {
+          "include": "#numbers"
+        },
+        {
+          "include": "#operators"
+        }
+      ]
+    },
+    "interpolationBraces": {
+      "patterns": [
+        {
+          "name": "meta.interpolation.braces.callisto",
+          "begin": "\\{",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.section.braces.begin.callisto"
+            }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.braces.end.callisto"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#interpolationExpression"
             }
           ]
         }

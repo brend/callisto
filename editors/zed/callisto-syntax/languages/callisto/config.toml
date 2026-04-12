@@ -1,0 +1,6 @@
+name = "Callisto"
+grammar = "callisto"
+path_suffixes = ["cal", "luna"]
+line_comments = ["// "]
+tab_size = 2
+hard_tabs = false

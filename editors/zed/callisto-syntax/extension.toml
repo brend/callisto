@@ -1,0 +1,11 @@
+id = "callisto"
+name = "Callisto"
+version = "0.1.0"
+schema_version = 1
+authors = ["Callisto contributors"]
+description = "Syntax highlighting for Callisto (.cal, .luna)."
+repository = "https://github.com/callisto-lang/callisto"
+
+[grammars.callisto]
+repository = "file:///Users/waldrumpus/code/callisto/editors/zed/callisto-syntax/tree-sitter-callisto"
+commit = "HEAD"

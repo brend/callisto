@@ -85,5 +85,49 @@
     "captures": {
       "1": "x"
     }
+  },
+  {
+    "name": "string interpolation begin",
+    "scope": "meta.interpolation.callisto",
+    "regex": "begin",
+    "sample": "let simple: String = \"ID ${id}\"",
+    "captures": {
+      "0": "${"
+    }
+  },
+  {
+    "name": "string interpolation end",
+    "scope": "meta.interpolation.callisto",
+    "regex": "end",
+    "sample": "let simple: String = \"ID ${id}\"",
+    "captures": {
+      "0": "}"
+    }
+  },
+  {
+    "name": "escaped interpolation marker",
+    "scope": "constant.character.escape.callisto",
+    "sample": "let text: String = \"Hello ${name}! #${count + 1} \\${literal}\"",
+    "captures": {
+      "0": "\\$"
+    }
+  },
+  {
+    "name": "interpolation nested brace begin",
+    "scope": "meta.interpolation.braces.callisto",
+    "regex": "begin",
+    "sample": "let shifted: String = \"${point with { x = point.x + 1 }}\"",
+    "captures": {
+      "0": "{"
+    }
+  },
+  {
+    "name": "interpolation nested brace end",
+    "scope": "meta.interpolation.braces.callisto",
+    "regex": "end",
+    "sample": "let shifted: String = \"${point with { x = point.x + 1 }}\"",
+    "captures": {
+      "0": "}"
+    }
   }
 ]

@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- `v0.4` draft planning document with scope candidates carried over from post-`v0.3.0` follow-on work.
+
+### Changed
+- `v0.3` release checklist marked complete after maintainer review and post-release planning moved to `v0.4`.
+- Repository metadata/docs now align with the completed `v0.3.0` release (`Cargo.toml` version and README release-planning links).
+
 ## [0.3.0] - 2026-04-04
 
 ### Added

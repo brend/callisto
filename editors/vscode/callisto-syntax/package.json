@@ -2,7 +2,7 @@
   "name": "callisto-syntax",
   "displayName": "Callisto Language Support",
   "description": "Syntax highlighting for Callisto (.cal, .luna).",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "callisto-lang",
   "license": "MIT",
   "engines": {

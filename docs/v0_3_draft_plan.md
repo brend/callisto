@@ -5,6 +5,8 @@ This document defines the first draft for `v0.3` planning.
 `v0.1` established the compiler core, and `v0.2` stabilized project config, diagnostics, and release quality.  
 `v0.3` focuses on Playdate-oriented product usability on top of that foundation.
 
+Status: `v0.3.0` is complete. Follow-on work has moved to [`docs/v0_4_draft_plan.md`](docs/v0_4_draft_plan.md).
+
 ## Why v0.3
 
 - Turn Playdate support from "possible" into "repeatable"
@@ -140,10 +142,6 @@ Acceptance criteria:
 - Finalized `CHANGELOG.md` into dated `0.3.0` release notes.
 - Added `docs/v0_3_announcement_draft.md` for release messaging.
 
-## Immediate Next Tasks
+## Follow-on Work
 
-1. Post-`v0.3.0`: extend richer sample coverage with state persistence and explicit transitions beyond input-hold states.
-2. Continue sample-driven binding additions only as required by richer samples.
-3. Start drafting `v0.4` scope candidates from Playdate workflow pain points.
-4. Parser ergonomics: allow more flexible ADT/sum formatting (for example, permitting variants on lines after `=` without requiring the first `|` on the same line).
-5. Type inference: improve inference for nullary generic constructors (for example `Nil`) in nested/record-initializer contexts so explicit temporary annotations are less often required.
+Remaining post-release items were moved to [`docs/v0_4_draft_plan.md`](docs/v0_4_draft_plan.md).
