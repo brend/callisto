@@ -62,6 +62,7 @@ module_roots = ["src", "../playdate_bindings/src"]
 ```
 
 Current shared modules:
+- `math` (Lua math helpers like `sin`)
 - `playdate`
 - `playdate.audio`
 - `playdate.graphics`
@@ -77,9 +78,10 @@ import playdate.audio
 import playdate.graphics
 import playdate.input
 import playdate.system
+import math
 ```
 
-Calls emit as `playdate.graphics.clear()`, `playdate.getCrankChange()`, etc.
+Calls emit as `playdate.graphics.clear()`, `playdate.getCrankChange()`, `math.sin(...)`, etc.
 
 ---
 

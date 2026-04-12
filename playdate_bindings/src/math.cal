@@ -1,0 +1,5 @@
+module math
+
+pub extern fn sin(x: Float) -> Float
+pub extern fn cos(x: Float) -> Float
+pub extern fn tan(x: Float) -> Float

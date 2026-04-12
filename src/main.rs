@@ -34,6 +34,10 @@ const DIAG_RES_MODULE_DECL_MISMATCH: &str = "CAL-RES-014";
 const DIAG_RES_DUPLICATE_MODULE_DEF: &str = "CAL-RES-015";
 const PLAYDATE_TEMPLATE_BINDINGS: &[(&str, &str)] = &[
     (
+        "bindings/math.cal",
+        include_str!("../playdate_bindings/src/math.cal"),
+    ),
+    (
         "bindings/playdate.cal",
         include_str!("../playdate_bindings/src/playdate.cal"),
     ),
@@ -292,7 +296,7 @@ end
 
 pub fn render(state: State) -> Unit do
   graphics.clear()
-  graphics.drawText("Hello from Callisto", 20, 40)
+  graphics.drawText("Hello from Callisto", 20.0, 40.0)
   ()
 end
 "#;
@@ -1732,6 +1736,7 @@ end
         assert!(root.join("Makefile").is_file());
         assert!(root.join("src").join("game.cal").is_file());
         assert!(!root.join("Source").join("main.lua").is_file());
+        assert!(root.join("bindings").join("math.cal").is_file());
         assert!(root.join("bindings").join("playdate.cal").is_file());
         assert!(
             root.join("bindings")
@@ -3164,9 +3169,9 @@ module app
 import playdate.graphics
 
 pub fn render() -> Unit do
-  graphics.drawLine(10, 20, 30, 40)
-  graphics.drawRect(12, 22, 40, 12)
-  graphics.fillRect(14, 24, 36, 8)
+  graphics.drawLine(10.0, 20.0, 30.0, 40.0)
+  graphics.drawRect(12.5, 22.0, 40.0, 12.0)
+  graphics.fillRect(14.0, 24.0, 36.0, 8.0)
   ()
 end
 "#,
@@ -3188,15 +3193,15 @@ end
         let game_lua = out_dir.join("app.lua");
         let game_text = std::fs::read_to_string(&game_lua).expect("read game lua");
         assert!(
-            game_text.contains("playdate.graphics.drawLine(10, 20, 30, 40)"),
+            game_text.contains("playdate.graphics.drawLine(10.0, 20.0, 30.0, 40.0)"),
             "{game_text}"
         );
         assert!(
-            game_text.contains("playdate.graphics.drawRect(12, 22, 40, 12)"),
+            game_text.contains("playdate.graphics.drawRect(12.5, 22.0, 40.0, 12.0)"),
             "{game_text}"
         );
         assert!(
-            game_text.contains("playdate.graphics.fillRect(14, 24, 36, 8)"),
+            game_text.contains("playdate.graphics.fillRect(14.0, 24.0, 36.0, 8.0)"),
             "{game_text}"
         );
         assert!(game_text.contains("M.render = render"), "{game_text}");
@@ -3350,6 +3355,54 @@ end
             "{timer_text}"
         );
         assert!(timer_text.contains("M.tick = tick"), "{timer_text}");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn emit_lua_math_binding_emits_sin_path() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_math_binding_emit_{}", nonce));
+        let out_dir = root.join("out");
+        std::fs::create_dir_all(&root).expect("failed to create root");
+
+        let entry = root.join("main.cal");
+        std::fs::write(
+            &entry,
+            r#"
+module app
+
+import math
+
+pub fn wave(theta: Float) -> Float do
+  math.sin(theta)
+end
+"#,
+        )
+        .expect("failed to write entry");
+
+        let bindings_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("playdate_bindings")
+            .join("src");
+        emit_lua_command_with_overrides(
+            &entry,
+            Some(out_dir.as_path()),
+            None,
+            std::slice::from_ref(&bindings_root),
+            false,
+        )
+        .expect("emit failed");
+
+        let game_lua = out_dir.join("app.lua");
+        let game_text = std::fs::read_to_string(&game_lua).expect("read game lua");
+        assert!(game_text.contains("math.sin("), "{game_text}");
+
+        let math_lua = out_dir.join("math.lua");
+        let math_text = std::fs::read_to_string(&math_lua).expect("read math lua");
+        assert!(math_text.contains("local M = {}"), "{math_text}");
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -4678,6 +4731,26 @@ end
             "golden_import_item_missing.luna",
             source,
         );
+    }
+
+    #[test]
+    fn int_argument_is_assignable_to_float_parameter() {
+        let source = r#"
+extern fn wave(theta: Float) -> Float
+
+fn main() -> Float do
+  wave(1)
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
     }
 
     #[test]

@@ -110,7 +110,7 @@ impl Cli {
                                     return Err(format!(
                                         "unknown workflow '{}'; supported workflows: auto-bootstrap, manual-shim",
                                         value
-                                    ))
+                                    ));
                                 }
                             };
                             seen_workflow = true;

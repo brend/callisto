@@ -1,4 +1,4 @@
-# Playdate Bindings (Callisto)
+# Playdate + Lua Bindings (Callisto)
 
 Shared extern module declarations for Playdate SDK access from Callisto projects.
 
@@ -11,6 +11,7 @@ Shared extern module declarations for Playdate SDK access from Callisto projects
 - `src/playdate/system.cal`: system wrappers (crank position helpers)
 - `src/playdate/graphics/sprite.cal`: sprite APIs
 - `src/playdate/timer.cal`: timer APIs (`updateTimers`)
+- `src/math.cal`: Lua math helpers (`sin`, `cos`, `tan`)
 
 ## Usage
 
@@ -30,4 +31,5 @@ import playdate.audio
 import playdate.system
 import playdate.graphics.sprite
 import playdate.timer
+import math
 ```

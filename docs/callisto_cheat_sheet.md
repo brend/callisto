@@ -98,7 +98,7 @@ extern fn now_ms() -> Int
 
 extern module playdate.graphics do
   extern fn clear() -> Unit
-  extern fn drawText(text: String, x: Int, y: Int) -> Unit
+  extern fn drawText(text: String, x: Float, y: Float) -> Unit
 end
 ```
 

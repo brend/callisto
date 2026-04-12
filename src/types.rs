@@ -95,6 +95,7 @@ impl Type {
         match (self, other) {
             (Type::Error, _) | (_, Type::Error) => true,
             (Type::Int, Type::Int)
+            | (Type::Float, Type::Int)
             | (Type::Float, Type::Float)
             | (Type::Bool, Type::Bool)
             | (Type::String, Type::String)
