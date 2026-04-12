@@ -237,7 +237,6 @@ end
 pub fn render(state: State) -> Unit do
   graphics.clear()
   graphics.drawText("Hello from Callisto", 20, 40)
-  state.frame
   ()
 end
 "#;
@@ -2220,6 +2219,41 @@ end
     }
 
     #[test]
+    fn emit_lua_expr_statement_discards_value_with_local_binding() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_emit_expr_stmt_{}", nonce));
+        let out_dir = root.join("out");
+        std::fs::create_dir_all(&root).expect("failed to create root");
+
+        let entry = root.join("main.cal");
+        std::fs::write(
+            &entry,
+            r#"
+module app
+
+pub fn tick() -> Unit do
+  let x = 1
+  x
+  ()
+end
+"#,
+        )
+        .expect("failed to write entry");
+
+        emit_lua_command_with_overrides(&entry, Some(out_dir.as_path()), None, &[], false)
+            .expect("emit failed");
+
+        let module_lua = out_dir.join("app.lua");
+        let lua_text = std::fs::read_to_string(&module_lua).expect("read module lua");
+        assert!(lua_text.contains("local _ = l0"), "{lua_text}");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn emit_lua_playdate_bootstrap_writes_main_shim() {
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -2309,7 +2343,6 @@ end
 
 pub fn render(state: State) -> Unit do
   graphics.clear()
-  state.frames
   ()
 end
 "#,
@@ -3236,5 +3269,19 @@ fn pick(m: MaybeInt) -> Int do
 end
 "#;
         assert_lua_golden("sum_match", "golden_sum_match.luna", source);
+    }
+
+    #[test]
+    fn lua_golden_string_interpolation() {
+        let source = r#"
+fn banner(name: String, count: Int) -> String do
+  "Hello ${name}! #${count + 1} \${literal}"
+end
+"#;
+        assert_lua_golden(
+            "string_interpolation",
+            "golden_string_interpolation.luna",
+            source,
+        );
     }
 }

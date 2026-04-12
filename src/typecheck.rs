@@ -3,8 +3,8 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     ast::{
         AssignStmt, BinaryOp, Block, ConstructorPayload, Expr, ExprKind, ForStmt, LetStmt,
-        MatchArm, Param, Pattern, PatternKind, RecordPatternField, ReturnStmt, Stmt, TypeExpr,
-        TypeExprKind, UnaryOp, VarStmt, WhileStmt,
+        MatchArm, Param, Pattern, PatternKind, RecordPatternField, ReturnStmt, Stmt, StringPart,
+        TypeExpr, TypeExprKind, UnaryOp, VarStmt, WhileStmt,
     },
     diagnostics::Diagnostics,
     resolve::{ResolvedBody, ResolvedModule},
@@ -332,6 +332,16 @@ impl<'a> Checker<'a> {
             ExprKind::Int(v) => self.mk_expr(Type::Int, TirExprKind::Int(*v)),
             ExprKind::Float(v) => self.mk_expr(Type::Float, TirExprKind::Float(*v)),
             ExprKind::String(v) => self.mk_expr(Type::String, TirExprKind::String(v.clone())),
+            ExprKind::StringInterp(parts) => {
+                let tir_parts = parts
+                    .iter()
+                    .map(|part| match part {
+                        StringPart::Text(v) => TirStringPart::Text(v.clone()),
+                        StringPart::Expr(expr) => TirStringPart::Expr(self.check_expr(expr)),
+                    })
+                    .collect();
+                self.mk_expr(Type::String, TirExprKind::StringInterp(tir_parts))
+            }
             ExprKind::Bool(v) => self.mk_expr(Type::Bool, TirExprKind::Bool(*v)),
             ExprKind::Unit => self.mk_expr(Type::Unit, TirExprKind::Unit),
             ExprKind::Paren(inner) => self.check_expr_with_expected(inner, expected),

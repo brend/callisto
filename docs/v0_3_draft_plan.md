@@ -145,3 +145,5 @@ Acceptance criteria:
 1. Post-`v0.3.0`: extend richer sample coverage with state persistence and explicit transitions beyond input-hold states.
 2. Continue sample-driven binding additions only as required by richer samples.
 3. Start drafting `v0.4` scope candidates from Playdate workflow pain points.
+4. Parser ergonomics: allow more flexible ADT/sum formatting (for example, permitting variants on lines after `=` without requiring the first `|` on the same line).
+5. Type inference: improve inference for nullary generic constructors (for example `Nil`) in nested/record-initializer contexts so explicit temporary annotations are less often required.

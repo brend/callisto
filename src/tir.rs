@@ -75,10 +75,17 @@ pub struct TirExpr {
 }
 
 #[derive(Debug, Clone)]
+pub enum TirStringPart {
+    Text(String),
+    Expr(TirExpr),
+}
+
+#[derive(Debug, Clone)]
 pub enum TirExprKind {
     Int(i64),
     Float(f64),
     String(String),
+    StringInterp(Vec<TirStringPart>),
     Bool(bool),
     Unit,
 

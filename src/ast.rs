@@ -233,10 +233,17 @@ pub struct Expr {
 }
 
 #[derive(Debug, Clone)]
+pub enum StringPart {
+    Text(String),
+    Expr(Expr),
+}
+
+#[derive(Debug, Clone)]
 pub enum ExprKind {
     Int(i64),
     Float(f64),
     String(String),
+    StringInterp(Vec<StringPart>),
     Bool(bool),
     Unit,
 

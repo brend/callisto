@@ -655,13 +655,7 @@ impl Parser {
             }
             TokenKind::StringLit => {
                 let tok = self.bump();
-                let raw = tok.lexeme;
-                let s = raw
-                    .strip_prefix('"')
-                    .and_then(|v| v.strip_suffix('"'))
-                    .unwrap_or(raw.as_str())
-                    .to_string();
-                self.mk_expr(tok.span, ExprKind::String(s))
+                self.parse_string_literal_expr(tok)
             }
             TokenKind::KwTrue => {
                 let tok = self.bump();
@@ -694,6 +688,193 @@ impl Parser {
                 self.mk_expr(tok.span, ExprKind::Unit)
             }
         }
+    }
+
+    fn parse_string_literal_expr(&mut self, tok: Token) -> Expr {
+        let raw = tok.lexeme;
+        let content = raw
+            .strip_prefix('"')
+            .and_then(|v| v.strip_suffix('"'))
+            .unwrap_or(raw.as_str());
+        let content_start = tok.span.start + 1;
+        let bytes = content.as_bytes();
+
+        let mut parts = Vec::new();
+        let mut saw_interpolation = false;
+        let mut literal_start = 0usize;
+        let mut i = 0usize;
+
+        while i + 1 < bytes.len() {
+            if bytes[i] == b'$' && bytes[i + 1] == b'{' {
+                let slash_count = Self::count_preceding_backslashes(bytes, i);
+                if slash_count % 2 == 1 {
+                    i += 2;
+                    continue;
+                }
+
+                let Some(end_idx) = Self::find_interpolation_end(content, i + 2) else {
+                    let span = Span::new(tok.span.file_id, content_start + i as u32, tok.span.end);
+                    self.diagnostics
+                        .error(span, "unterminated string interpolation");
+                    let literal = Self::unescape_interpolation_markers(content);
+                    return self.mk_expr(tok.span, ExprKind::String(literal));
+                };
+
+                let literal = Self::unescape_interpolation_markers(&content[literal_start..i]);
+                if !literal.is_empty() {
+                    parts.push(StringPart::Text(literal));
+                }
+
+                let expr_source = &content[i + 2..end_idx];
+                let expr_span_start = content_start + (i + 2) as u32;
+                let expr = self.parse_string_interpolation_expr(
+                    expr_source,
+                    tok.span.file_id,
+                    expr_span_start,
+                    end_idx.saturating_sub(i + 2) as u32,
+                );
+                parts.push(StringPart::Expr(expr));
+                saw_interpolation = true;
+
+                i = end_idx + 1;
+                literal_start = i;
+                continue;
+            }
+            i += 1;
+        }
+
+        if !saw_interpolation {
+            let s = Self::unescape_interpolation_markers(content);
+            return self.mk_expr(tok.span, ExprKind::String(s));
+        }
+
+        let tail = Self::unescape_interpolation_markers(&content[literal_start..]);
+        if !tail.is_empty() {
+            parts.push(StringPart::Text(tail));
+        }
+
+        self.mk_expr(tok.span, ExprKind::StringInterp(parts))
+    }
+
+    fn parse_string_interpolation_expr(
+        &mut self,
+        source: &str,
+        file_id: u32,
+        span_start: u32,
+        fallback_len: u32,
+    ) -> Expr {
+        let fallback_span = Span::new(file_id, span_start, span_start + fallback_len);
+        if source.trim().is_empty() {
+            self.diagnostics
+                .error(fallback_span, "empty string interpolation expression");
+            return self.mk_expr(fallback_span, ExprKind::String(String::new()));
+        }
+
+        let (mut tokens, mut lex_diags) = crate::lexer::lex(file_id, source);
+        Self::offset_diagnostics(&mut lex_diags, span_start);
+        self.diagnostics.extend(lex_diags);
+        for tok in &mut tokens {
+            tok.span = Self::offset_span(tok.span, span_start);
+        }
+
+        let mut parser = Parser::new(tokens);
+        let expr = parser.parse_expr();
+        parser.skip_newlines();
+        if !parser.at(TokenKind::Eof) {
+            parser.error_here("unexpected tokens in string interpolation expression");
+        }
+        self.diagnostics.extend(parser.diagnostics);
+        expr
+    }
+
+    fn offset_diagnostics(diags: &mut Diagnostics, offset: u32) {
+        for diag in &mut diags.items {
+            diag.primary_span = Self::offset_span(diag.primary_span, offset);
+            for (span, _) in &mut diag.notes {
+                *span = Self::offset_span(*span, offset);
+            }
+        }
+    }
+
+    fn offset_span(span: Span, offset: u32) -> Span {
+        Span::new(
+            span.file_id,
+            span.start.saturating_add(offset),
+            span.end.saturating_add(offset),
+        )
+    }
+
+    fn count_preceding_backslashes(bytes: &[u8], idx: usize) -> usize {
+        let mut count = 0usize;
+        let mut cursor = idx;
+        while cursor > 0 && bytes[cursor - 1] == b'\\' {
+            count += 1;
+            cursor -= 1;
+        }
+        count
+    }
+
+    fn unescape_interpolation_markers(text: &str) -> String {
+        let bytes = text.as_bytes();
+        let mut out = String::with_capacity(text.len());
+        let mut cursor = 0usize;
+        let mut i = 0usize;
+
+        while i + 1 < bytes.len() {
+            if bytes[i] == b'$' && bytes[i + 1] == b'{' {
+                let slash_count = Self::count_preceding_backslashes(bytes, i);
+                if slash_count % 2 == 1 {
+                    out.push_str(&text[cursor..i - 1]);
+                    out.push_str("${");
+                    i += 2;
+                    cursor = i;
+                    continue;
+                }
+            }
+            i += 1;
+        }
+
+        out.push_str(&text[cursor..]);
+        out
+    }
+
+    fn find_interpolation_end(text: &str, expr_start: usize) -> Option<usize> {
+        let bytes = text.as_bytes();
+        let mut i = expr_start;
+        let mut depth = 1usize;
+        let mut in_string = false;
+        let mut escaped = false;
+
+        while i < bytes.len() {
+            let ch = bytes[i];
+            if in_string {
+                if escaped {
+                    escaped = false;
+                } else if ch == b'\\' {
+                    escaped = true;
+                } else if ch == b'"' {
+                    in_string = false;
+                }
+                i += 1;
+                continue;
+            }
+
+            match ch {
+                b'"' => in_string = true,
+                b'{' => depth += 1,
+                b'}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some(i);
+                    }
+                }
+                _ => {}
+            }
+
+            i += 1;
+        }
+
+        None
     }
 
     fn parse_postfix_expr(&mut self, mut expr: Expr) -> Expr {

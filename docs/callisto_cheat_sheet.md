@@ -1,136 +1,211 @@
-# Callisto Cheat Sheet
+# Callisto Syntax Cheat Sheet
 
-Quick reference for day-to-day Callisto work.
+Compiler-accurate quick reference for `.cal` / `.luna` source syntax.
 
-## CLI
+## File layout
 
-```sh
-# Parse and print AST
-callisto parse path/to/main.cal
+Top-level order is:
 
-# Scaffold a Playdate project
-callisto init --template playdate my-game
-
-# Typecheck only
-callisto check path/to/main.cal [--config path/to/callisto.toml] [--module-root path]...
-
-# Emit Lua
-callisto emit-lua path/to/main.cal [-o out.lua|out_dir] [--config path/to/callisto.toml] [--module-root path]... [--playdate-bootstrap]
-
-# Alias of emit-lua
-callisto build path/to/main.cal [-o out.lua|out_dir] [--config path/to/callisto.toml] [--module-root path]... [--playdate-bootstrap]
-
-# One-command Playdate build (emit + pdc + optional simulator launch)
-callisto build-playdate path/to/game.cal [--source-dir Source] [--pdx Game.pdx] [--pdc pdc] [--run] [--config path/to/callisto.toml] [--module-root path]...
-```
-
-Precedence:
-- CLI flags override config values.
-- `-o` overrides `out_dir`.
-- `--module-root` entries override `module_roots`.
-- `--playdate-bootstrap` writes a Playdate `main.lua` shim in output directories.
-- Bootstrap requires entry exports: `pub fn init() -> S`, `pub fn update(state: S) -> S`, `pub fn render(state: S) -> Unit`.
-- `build-playdate --source-dir` overrides output directory selection.
-- `build-playdate --pdx` overrides default bundle output path.
-
-## `callisto.toml`
-
-```toml
-module_roots = ["../shared", "/absolute/vendor"]
-out_dir = "build"
-package = "demo.app"
-```
-
-## Module and imports
+1. Optional `module ...`
+2. Zero or more `import ...`
+3. Declarations (`type`, `fn`, `extern ...`, `impl ...`)
 
 ```cal
 module game.main
-
 import math.vec2
-import math.vec2.{length, normalize}
+import math.vec2.{length}
+
+pub type Vec2 { x: Float, y: Float }
 ```
 
-Module path `foo.bar` resolves like:
-- `foo/bar.cal` or `foo/bar.luna`
-- `foo/bar/mod.cal` or `foo/bar/mod.luna`
+## Lexical basics
 
-## Types
+- Line comments: `// like this`
+- Strings: `"text"`
+- String interpolation: `"Hello ${name}"`
+- Escape interpolation marker: `"\\${literal}"` (renders `${literal}`)
+- Booleans: `true`, `false`
+- Unit value/type: `()` / `Unit`
+- Statements are newline-separated (no semicolons)
+
+## Imports
 
 ```cal
-type Vec2 { x: Float, y: Float }
-type Option[T] = | None | Some(T)
-type Shape = | Circle { radius: Float } | Rect { w: Float, h: Float }
+import foo.bar
+import foo.bar.{baz, qux}
 ```
 
-Built-ins:
-- `Int`, `Float`, `Bool`, `String`, `Unit`
+- `import foo.bar` binds module alias `bar`.
+- `import foo.bar.{baz}` brings `baz` into scope directly.
+- There is no `as` alias syntax.
 
-## Bindings and functions
+## Declarations
+
+### Functions
 
 ```cal
-let pi: Float = 3.14
-var count: Int = 0
-
 fn add(a: Int, b: Int) -> Int do
   a + b
 end
 
-let double = fn (x: Int) -> Int => x * 2
-```
-
-## Control flow
-
-```cal
-if score > 50 then
-  "pass"
-else
-  "retry"
-end
-
-while running do
-  tick()
-end
-
-for i in 0..10 do
-  print(i)
-end
-
-match value do
-  case Some(v) => v
-  case None    => 0
+pub fn log(msg: String) do
+  ()
 end
 ```
 
-## Records and methods
+- Params are always typed.
+- Return type is optional; omitted means `Unit`.
+
+### Types
 
 ```cal
-type Player { hp: Int, name: String }
+type Distance = Int
 
-impl Player do
-  fn damaged(self: Player, amount: Int) -> Player do
-    self with { hp = self.hp - amount }
-  end
-end
+type Vec2 { x: Float, y: Float }
+
+type Option[T] =
+  | None
+  | Some(T)
+
+type Shape =
+  | Circle { radius: Int }
+  | Rect { w: Int, h: Int }
 ```
 
-## Extern interop
+- Generic params use `[T, U]`.
+- Sum variants can be:
+- No payload: `None`
+- Positional payload: `Some(T)`
+- Record payload: `Circle { radius: Int }`
+
+### Externs
 
 ```cal
+extern type PDImage
+
+extern fn now_ms() -> Int
+
 extern module playdate.graphics do
   extern fn clear() -> Unit
   extern fn drawText(text: String, x: Int, y: Int) -> Unit
 end
 ```
 
-## Diagnostics
+- `extern module` uses `do ... end`.
+- Members inside must be declared as `extern fn`.
 
-Diagnostic format:
+### Impl blocks
 
-```text
-path/to/file.cal:line:col: error[CAL-XXX-000]: message
+```cal
+impl Vec2 do
+  fn moved(self: Vec2, dx: Int, dy: Int) -> Vec2 do
+    self with { x = self.x + dx, y = self.y + dy }
+  end
+end
 ```
 
-Stable code prefixes:
-- `CAL-CFG-*` config loading/validation
-- `CAL-RES-*` module/name resolution
-- `CAL-TYP-*` type checking
+## Type expressions
+
+```cal
+Int
+Option[Int]
+Int -> Bool
+(Int)
+Int not   // nullable, extern context only
+Nil       // extern context only
+```
+
+- Function type arrows are right-associative (`A -> B -> C`).
+
+## Statements and blocks
+
+```cal
+let x: Int = 1
+var total = 0
+total = total + x
+
+return total
+return
+
+while total < 10 do
+  total = total + 1
+end
+
+for i in 0..10 do
+  total = total + i
+end
+```
+
+- Assignment target must be a local name (not `obj.field = ...`).
+- Blocks are expression-oriented: last expression becomes block value.
+
+## Expressions
+
+```cal
+123
+3.14
+"hi"
+true
+()
+
+foo(1, 2)
+obj.field
+obj.method(1)
+
+Vec2 { x = 1, y = 2 }      // record init
+Some(1)                    // positional constructor
+None                       // nullary constructor
+p with { x = p.x + 1 }     // record update
+
+if cond then
+  1
+elseif other then
+  2
+else
+  3
+end
+
+match value do
+  case Some(v) => v
+  case None => 0
+end
+
+let inc = fn (x: Int) -> Int => x + 1
+```
+
+- `if` is an expression and requires `else`.
+- `match` supports optional `do` (`match value do ... end` or `match value ... end`).
+
+## Patterns (`match case`)
+
+```cal
+case _ => 0
+case n => n
+case 0 => 1
+case true => 1
+case "ok" => 1
+case Some(v) => v
+case Circle { radius } => radius
+case Circle { radius = r } => r
+```
+
+## Operators (lowest to highest)
+
+1. `or`
+2. `and`
+3. `==`, `!=`
+4. `<`, `<=`, `>`, `>=`
+5. `+`, `-`
+6. `*`, `/`, `%`
+7. `with` (record update)
+8. Postfix: call `()`, field `.x`, method `.f(...)`
+
+Unary operators: `-x`, `not x`.
+
+## Practical gotchas
+
+- Constructors are parsed from uppercase identifiers (`Some`, `None`, `Circle`).
+- Record/constructor field initializers use `=` (not `:`): `{ x = 1 }`.
+- Type fields use `:` (not `=`): `{ x: Int }`.
+- `Int not` and `Nil` are only valid in extern type positions.
+- `import` declarations must appear before top-level declarations.

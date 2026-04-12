@@ -5,7 +5,8 @@ use crate::{
     resolve::ResolvedModule,
     tir::{
         TirBinaryOp, TirBlock, TirExpr, TirExprKind, TirFunc, TirFuncKind, TirMatchArm, TirModule,
-        TirPattern, TirPatternVariantPayload, TirStmt, TirUnaryOp, TirVariantPayload,
+        TirPattern, TirPatternVariantPayload, TirStmt, TirStringPart, TirUnaryOp,
+        TirVariantPayload,
     },
     types::{FuncId, FuncKind, LocalId, VariantId},
 };
@@ -160,7 +161,7 @@ impl<'a> LuaEmitter<'a> {
             }
             TirStmt::Expr(expr) => {
                 let expr = self.emit_expr(expr, locals);
-                self.line(&expr);
+                self.line(&format!("local _ = {}", expr));
             }
             TirStmt::Return(value) => {
                 if let Some(value) = value {
@@ -208,6 +209,7 @@ impl<'a> LuaEmitter<'a> {
                 }
             }
             TirExprKind::String(s) => format!("{:?}", s),
+            TirExprKind::StringInterp(parts) => self.emit_string_interp_expr(parts, locals),
             TirExprKind::Bool(v) => {
                 if *v {
                     "true".to_string()
@@ -310,6 +312,29 @@ impl<'a> LuaEmitter<'a> {
                 format!("function({}) return {} end", param_names, body)
             }
         }
+    }
+
+    fn emit_string_interp_expr(
+        &mut self,
+        parts: &[TirStringPart],
+        locals: &mut HashMap<LocalId, String>,
+    ) -> String {
+        if parts.is_empty() {
+            return r#""""#.to_string();
+        }
+
+        let chunks = parts
+            .iter()
+            .map(|part| match part {
+                TirStringPart::Text(v) => format!("{:?}", v),
+                TirStringPart::Expr(expr) => {
+                    let value = self.emit_expr(expr, locals);
+                    format!("tostring({})", value)
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" .. ");
+        format!("({})", chunks)
     }
 
     fn emit_if_expr(
@@ -504,7 +529,7 @@ impl<'a> LuaEmitter<'a> {
             }
             TirStmt::Expr(expr) => {
                 let expr = self.emit_expr(expr, locals);
-                format!("{};", expr)
+                format!("local _ = {};", expr)
             }
             TirStmt::Return(value) => {
                 if let Some(value) = value {
