@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- `v0.6` draft planning docs centered on language completeness:
+  - `docs/v0_6_draft_plan.md`
+  - `docs/v0_6_m0_scope_freeze_checklist.md`
+  - `docs/v0_6_m1_nominal_types_execution_checklist.md`
+  - `docs/v0_6_m2_match_analysis_execution_checklist.md`
+  - `docs/v0_6_m3_pattern_conformance_execution_checklist.md`
+  - `docs/v0_6_m4_release_checklist.md`
+- Initial language conformance matrix scaffold in `docs/v0_6_language_conformance_matrix.md`.
+
+### Changed
+- Parser now accepts trailing commas in multiline list contexts across:
+  - function/type parameter lists
+  - call arguments and constructor payload arguments
+  - match arms (optional trailing comma after each `case` arm)
+- Record initializer field punning is now supported (`Point { x }` is treated as `Point { x = x }`).
+- Type diagnostics now include stronger fix-it notes for common mistakes:
+  - constructor argument arity mismatch includes a suggested constructor call shape
+  - unknown/duplicate/missing record fields include more actionable correction notes
+
 ## [0.5.0] - 2026-04-12
 
 ### Added

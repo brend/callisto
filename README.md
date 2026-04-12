@@ -11,6 +11,7 @@ Callisto is a statically-typed programming language that compiles to Lua. It bri
 - **Method syntax** — `impl` blocks for attaching methods to types
 - **Lambda expressions** — first-class functions with explicit types
 - **Record update syntax** — non-destructive field updates with `with`
+- **Parser ergonomics** — trailing commas in multiline lists and record field punning (`Point { x }`)
 - **Extern interop** — typed bindings to existing Lua APIs via `extern`
 - **Module system** — `module` declarations and `import` statements
 - **Readable output** — emits idiomatic, human-readable Lua
@@ -216,6 +217,18 @@ end
 let double = fn (x: Int) -> Int => x * 2
 ```
 
+Multiline parameter/argument/payload/match-arm lists may include trailing commas.
+
+### Record field punning
+
+```
+type Point { x: Int, y: Int }
+
+fn make(x: Int) -> Point do
+  Point { x, y = 0 }
+end
+```
+
 ### Control flow
 
 ```
@@ -283,7 +296,7 @@ source → lexer → parser → AST → name resolution → type checking → TI
 
 See [`docs/luna_compiler_architecture_v0_1.md`](docs/luna_compiler_architecture_v0_1.md) for the full design.
 
-v0.3 release completion and v0.4 planning are tracked in:
+Recent release completion and active `v0.6` planning are tracked in:
 - [`docs/v0_3_draft_plan.md`](docs/v0_3_draft_plan.md)
 - [`docs/v0_3_m4_release_checklist.md`](docs/v0_3_m4_release_checklist.md)
 - [`docs/v0_4_draft_plan.md`](docs/v0_4_draft_plan.md)
@@ -292,3 +305,10 @@ v0.3 release completion and v0.4 planning are tracked in:
 - [`docs/v0_4_m2_parser_ergonomics_execution_checklist.md`](docs/v0_4_m2_parser_ergonomics_execution_checklist.md)
 - [`docs/v0_4_m3_type_inference_execution_checklist.md`](docs/v0_4_m3_type_inference_execution_checklist.md)
 - [`docs/v0_4_m4_release_checklist.md`](docs/v0_4_m4_release_checklist.md)
+- [`docs/v0_6_draft_plan.md`](docs/v0_6_draft_plan.md)
+- [`docs/v0_6_language_conformance_matrix.md`](docs/v0_6_language_conformance_matrix.md)
+- [`docs/v0_6_m0_scope_freeze_checklist.md`](docs/v0_6_m0_scope_freeze_checklist.md)
+- [`docs/v0_6_m1_nominal_types_execution_checklist.md`](docs/v0_6_m1_nominal_types_execution_checklist.md)
+- [`docs/v0_6_m2_match_analysis_execution_checklist.md`](docs/v0_6_m2_match_analysis_execution_checklist.md)
+- [`docs/v0_6_m3_pattern_conformance_execution_checklist.md`](docs/v0_6_m3_pattern_conformance_execution_checklist.md)
+- [`docs/v0_6_m4_release_checklist.md`](docs/v0_6_m4_release_checklist.md)

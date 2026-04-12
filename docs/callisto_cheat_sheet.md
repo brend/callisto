@@ -48,6 +48,13 @@ fn add(a: Int, b: Int) -> Int do
   a + b
 end
 
+fn add_multiline(
+  a: Int,
+  b: Int,
+) -> Int do
+  a + b
+end
+
 pub fn log(msg: String) do
   ()
 end
@@ -55,6 +62,7 @@ end
 
 - Params are always typed.
 - Return type is optional; omitted means `Unit`.
+- Multiline lists allow trailing commas.
 
 ### Types
 
@@ -153,6 +161,7 @@ obj.field
 obj.method(1)
 
 Vec2 { x = 1, y = 2 }      // record init
+Vec2 { x, y = 2 }          // record field punning (`x = x`)
 Some(1)                    // positional constructor
 None                       // nullary constructor
 p with { x = p.x + 1 }     // record update
@@ -167,7 +176,7 @@ end
 
 match value do
   case Some(v) => v
-  case None => 0
+  case None => 0,
 end
 
 let inc = fn (x: Int) -> Int => x + 1
@@ -175,6 +184,7 @@ let inc = fn (x: Int) -> Int => x + 1
 
 - `if` is an expression and requires `else`.
 - `match` supports optional `do` (`match value do ... end` or `match value ... end`).
+- Trailing commas are accepted in multiline params/args/payloads/match arms.
 
 ## Patterns (`match case`)
 
@@ -206,6 +216,7 @@ Unary operators: `-x`, `not x`.
 
 - Constructors are parsed from uppercase identifiers (`Some`, `None`, `Circle`).
 - Record/constructor field initializers use `=` (not `:`): `{ x = 1 }`.
+- Record initializers support punning: `{ x }` is equivalent to `{ x = x }`.
 - Type fields use `:` (not `=`): `{ x: Int }`.
 - `Int not` and `Nil` are only valid in extern type positions.
 - `import` declarations must appear before top-level declarations.

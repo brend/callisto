@@ -1030,7 +1030,7 @@ impl<'a> Checker<'a> {
                     );
                     let expected_payload =
                         self.instantiate_variant_payload(&expected_payload_raw, &subst);
-                    self.check_constructor_payload(&expected_payload, &payload, span);
+                    self.check_constructor_payload(type_name, &expected_payload, &payload, span);
 
                     return self.mk_expr(
                         Type::Named(ty_id, type_args),
@@ -1226,7 +1226,7 @@ impl<'a> Checker<'a> {
                 expected_args,
             );
             let expected_payload = self.instantiate_variant_payload(&expected_payload_raw, &subst);
-            self.check_constructor_payload(&expected_payload, &payload, span);
+            self.check_constructor_payload(name, &expected_payload, &payload, span);
         }
 
         self.mk_expr(
@@ -1513,6 +1513,7 @@ impl<'a> Checker<'a> {
 
     fn check_constructor_payload(
         &mut self,
+        ctor_name: &str,
         expected: &VariantPayload,
         got: &TirVariantPayload,
         span: crate::span::Span,
@@ -1540,8 +1541,8 @@ impl<'a> Checker<'a> {
                         ),
                         span,
                         format!(
-                            "this constructor expects {} positional payload value(s)",
-                            expected_tys.len()
+                            "try `{}`",
+                            format_constructor_positional_example(ctor_name, expected_tys.len())
                         ),
                     );
                 }
@@ -1629,23 +1630,36 @@ impl<'a> Checker<'a> {
         match &expected_payload {
             VariantPayload::None => {
                 if !positional_args.is_empty() || !record_fields.is_empty() {
-                    self.diagnostics
-                        .error(span, "constructor pattern takes no payload");
+                    self.diagnostics.error_with_note(
+                        span,
+                        "constructor pattern takes no payload",
+                        span,
+                        "remove the payload and use the nullary constructor pattern",
+                    );
                 }
                 TirPatternVariantPayload::None
             }
             VariantPayload::Positional(expected_tys) => {
                 if !record_fields.is_empty() {
-                    self.diagnostics
-                        .error(span, "constructor pattern requires positional arguments");
+                    self.diagnostics.error_with_note(
+                        span,
+                        "constructor pattern requires positional arguments",
+                        span,
+                        "use `Ctor(a, b, ...)` pattern syntax for this constructor",
+                    );
                 }
                 if expected_tys.len() != positional_args.len() {
-                    self.diagnostics.error(
+                    self.diagnostics.error_with_note(
                         span,
                         format!(
                             "constructor pattern argument count mismatch: expected {}, got {}",
                             expected_tys.len(),
                             positional_args.len()
+                        ),
+                        span,
+                        format!(
+                            "this pattern expects {} positional value(s)",
+                            expected_tys.len()
                         ),
                     );
                 }
@@ -1661,8 +1675,12 @@ impl<'a> Checker<'a> {
             }
             VariantPayload::Record(expected_fields) => {
                 if !positional_args.is_empty() {
-                    self.diagnostics
-                        .error(span, "constructor pattern requires record payload");
+                    self.diagnostics.error_with_note(
+                        span,
+                        "constructor pattern requires record payload",
+                        span,
+                        "use `Ctor { field = value, ... }` pattern syntax for this constructor",
+                    );
                 }
                 let provided: Vec<(String, crate::span::Span)> = record_fields
                     .iter()
@@ -1801,17 +1819,28 @@ impl<'a> Checker<'a> {
         let mut seen = HashSet::new();
         for (name, field_span) in provided_fields {
             if !expected_names.contains(name.as_str()) {
+                let suggestion = best_field_name_suggestion(name, expected_fields);
+                let note = if let Some(suggested) = suggestion {
+                    format!(
+                        "did you mean '{}' ? expected fields: {}",
+                        suggested, expected_list
+                    )
+                } else {
+                    format!("expected fields: {}", expected_list)
+                };
                 self.diagnostics.error_with_note(
                     *field_span,
                     format!("unknown field '{}' in {}", name, context),
                     span,
-                    format!("expected fields: {}", expected_list),
+                    note,
                 );
             }
             if !seen.insert(name.clone()) {
-                self.diagnostics.error(
+                self.diagnostics.error_with_note(
                     *field_span,
                     format!("duplicate field '{}' in {}", name, context),
+                    *field_span,
+                    format!("remove one of the duplicate '{}' fields", name),
                 );
             }
         }
@@ -1822,7 +1851,10 @@ impl<'a> Checker<'a> {
                     span,
                     format!("missing field '{}' in {}", expected.name, context),
                     span,
-                    format!("provided fields: {}", provided_list),
+                    format!(
+                        "provided fields: {}; add `{} = ...`",
+                        provided_list, expected.name
+                    ),
                 );
             }
         }
@@ -2136,6 +2168,64 @@ impl<'a> Checker<'a> {
 
 fn is_numeric(ty: &Type) -> bool {
     matches!(ty, Type::Int | Type::Float | Type::Error)
+}
+
+fn format_constructor_positional_example(name: &str, arity: usize) -> String {
+    let args = (1..=arity)
+        .map(|idx| format!("arg{idx}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{name}({args})")
+}
+
+fn best_field_name_suggestion<'a>(
+    provided: &str,
+    expected_fields: &'a [crate::types::FieldInfo],
+) -> Option<&'a str> {
+    let mut best: Option<(&str, usize)> = None;
+    let mut tied = false;
+    for field in expected_fields {
+        let distance = edit_distance(provided, &field.name);
+        if distance > 2 {
+            continue;
+        }
+        match best {
+            Some((_, best_distance)) if distance > best_distance => {}
+            Some((_, best_distance)) if distance == best_distance => {
+                tied = true;
+            }
+            _ => {
+                best = Some((field.name.as_str(), distance));
+                tied = false;
+            }
+        }
+    }
+    if tied {
+        None
+    } else {
+        best.map(|(name, _)| name)
+    }
+}
+
+fn edit_distance(a: &str, b: &str) -> usize {
+    let b_chars: Vec<char> = b.chars().collect();
+    let a_chars: Vec<char> = a.chars().collect();
+    let mut prev: Vec<usize> = (0..=b_chars.len()).collect();
+    let mut curr = vec![0usize; b_chars.len() + 1];
+
+    for (i, a_ch) in a_chars.iter().enumerate() {
+        curr[0] = i + 1;
+        for (j, b_ch) in b_chars.iter().enumerate() {
+            let cost = if a_ch == b_ch { 0 } else { 1 };
+            let deletion = prev[j + 1] + 1;
+            let insertion = curr[j] + 1;
+            let substitution = prev[j] + cost;
+            curr[j + 1] = deletion.min(insertion).min(substitution);
+        }
+        std::mem::swap(&mut prev, &mut curr);
+    }
+
+    prev[b_chars.len()]
 }
 
 fn infer_variant_payload_type_params(

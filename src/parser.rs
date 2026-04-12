@@ -191,10 +191,20 @@ impl Parser {
 
         let payload = if self.eat(TokenKind::LParen).is_some() {
             let mut tys = Vec::new();
+            self.skip_newlines();
             if !self.at(TokenKind::RParen) {
                 loop {
+                    self.skip_newlines();
+                    if self.at(TokenKind::RParen) {
+                        break;
+                    }
                     tys.push(self.parse_type_expr());
+                    self.skip_newlines();
                     if self.eat(TokenKind::Comma).is_none() {
+                        break;
+                    }
+                    self.skip_newlines();
+                    if self.at(TokenKind::RParen) {
                         break;
                     }
                 }
@@ -345,8 +355,13 @@ impl Parser {
     fn parse_param_list(&mut self) -> Vec<Param> {
         self.expect(TokenKind::LParen, "expected '('");
         let mut params = Vec::new();
+        self.skip_newlines();
         if !self.at(TokenKind::RParen) {
             loop {
+                self.skip_newlines();
+                if self.at(TokenKind::RParen) {
+                    break;
+                }
                 let name_tok = self.expect_ident("expected parameter name");
                 self.expect(TokenKind::Colon, "expected ':' after parameter name");
                 let ty = self.parse_type_expr();
@@ -356,7 +371,12 @@ impl Parser {
                     name: name_tok.lexeme,
                     ty,
                 });
+                self.skip_newlines();
                 if self.eat(TokenKind::Comma).is_none() {
+                    break;
+                }
+                self.skip_newlines();
+                if self.at(TokenKind::RParen) {
                     break;
                 }
             }
@@ -370,10 +390,20 @@ impl Parser {
             return Vec::new();
         }
         let mut params = Vec::new();
+        self.skip_newlines();
         if !self.at(TokenKind::RBracket) {
             loop {
+                self.skip_newlines();
+                if self.at(TokenKind::RBracket) {
+                    break;
+                }
                 params.push(self.expect_ident("expected type parameter").lexeme);
+                self.skip_newlines();
                 if self.eat(TokenKind::Comma).is_none() {
+                    break;
+                }
+                self.skip_newlines();
+                if self.at(TokenKind::RBracket) {
                     break;
                 }
             }
@@ -1008,13 +1038,14 @@ impl Parser {
             let case_span = self.bump().span;
             let pattern = self.parse_pattern();
             self.expect(TokenKind::FatArrow, "expected '=>' in match arm");
-            let body = self.parse_block(&[TokenKind::KwCase, TokenKind::KwEnd]);
+            let body = self.parse_block(&[TokenKind::KwCase, TokenKind::KwEnd, TokenKind::Comma]);
             let arm_span = case_span.merge(body.span);
             arms.push(MatchArm {
                 span: arm_span,
                 pattern,
                 body,
             });
+            let _ = self.eat(TokenKind::Comma);
             self.skip_newlines();
         }
 
@@ -1058,10 +1089,20 @@ impl Parser {
                 if is_constructor_name(&tok.lexeme) {
                     if self.eat(TokenKind::LParen).is_some() {
                         let mut args = Vec::new();
+                        self.skip_newlines();
                         if !self.at(TokenKind::RParen) {
                             loop {
+                                self.skip_newlines();
+                                if self.at(TokenKind::RParen) {
+                                    break;
+                                }
                                 args.push(self.parse_pattern());
+                                self.skip_newlines();
                                 if self.eat(TokenKind::Comma).is_none() {
+                                    break;
+                                }
+                                self.skip_newlines();
+                                if self.at(TokenKind::RParen) {
                                     break;
                                 }
                             }
@@ -1079,6 +1120,10 @@ impl Parser {
                     if self.eat(TokenKind::LBrace).is_some() {
                         let mut fields = Vec::new();
                         while !self.at(TokenKind::RBrace) && !self.at(TokenKind::Eof) {
+                            self.skip_newlines();
+                            if self.at(TokenKind::RBrace) {
+                                break;
+                            }
                             let field_tok = self.expect_ident("expected record pattern field");
                             let pattern = if self.eat(TokenKind::Eq).is_some() {
                                 Some(self.parse_pattern())
@@ -1228,10 +1273,20 @@ impl Parser {
 
     fn parse_expr_list(&mut self, terminator: TokenKind) -> Vec<Expr> {
         let mut args = Vec::new();
+        self.skip_newlines();
         if !self.at(terminator) {
             loop {
+                self.skip_newlines();
+                if self.at(terminator) {
+                    break;
+                }
                 args.push(self.parse_expr());
+                self.skip_newlines();
                 if self.eat(TokenKind::Comma).is_none() {
+                    break;
+                }
+                self.skip_newlines();
+                if self.at(terminator) {
                     break;
                 }
             }
@@ -1247,8 +1302,12 @@ impl Parser {
                 break;
             }
             let name_tok = self.expect_ident("expected field name");
-            self.expect(TokenKind::Eq, "expected '=' in field initializer");
-            let value = self.parse_expr();
+            let value = if self.eat(TokenKind::Eq).is_some() {
+                self.parse_expr()
+            } else {
+                // Record field punning: `Point { x }` expands to `Point { x = x }`.
+                self.mk_expr(name_tok.span, ExprKind::Var(name_tok.lexeme.clone()))
+            };
             fields.push(RecordFieldInit {
                 span: name_tok.span.merge(value.span),
                 name: name_tok.lexeme,

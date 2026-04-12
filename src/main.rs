@@ -328,13 +328,17 @@ fn playdate_template_readme(
     starter_assets: bool,
 ) -> String {
     let workflow_lines = match workflow {
-        PlaydateTemplateWorkflow::AutoBootstrap => "Workflow: auto bootstrap (`--playdate-bootstrap`).\n",
+        PlaydateTemplateWorkflow::AutoBootstrap => {
+            "Workflow: auto bootstrap (`--playdate-bootstrap`).\n"
+        }
         PlaydateTemplateWorkflow::ManualShim => {
             "Workflow: manual shim (`Source/main.lua` owns frame-to-frame state).\n"
         }
     };
     let optional_bootstrap = match workflow {
-        PlaydateTemplateWorkflow::AutoBootstrap => "\n## Optional Bootstrap Customization\n\n```sh\ncallisto build src/game.cal -o Source --config callisto.toml --playdate-bootstrap \\\n  --playdate-bootstrap-target playdate.gameUpdate \\\n  --playdate-bootstrap-preload playdate.input=playdate/input\n```\n",
+        PlaydateTemplateWorkflow::AutoBootstrap => {
+            "\n## Optional Bootstrap Customization\n\n```sh\ncallisto build src/game.cal -o Source --config callisto.toml --playdate-bootstrap \\\n  --playdate-bootstrap-target playdate.gameUpdate \\\n  --playdate-bootstrap-preload playdate.input=playdate/input\n```\n"
+        }
         PlaydateTemplateWorkflow::ManualShim => "",
     };
     let starter_assets_note = if starter_assets {
@@ -1255,7 +1259,10 @@ fn write_playdate_bootstrap(
     if !options.preloads.is_empty() {
         lua.push('\n');
     }
-    let update_target = options.update_target.as_deref().unwrap_or("playdate.update");
+    let update_target = options
+        .update_target
+        .as_deref()
+        .unwrap_or("playdate.update");
     lua.push_str(&format!(
         "local game = import \"{}\"\nlocal __state = game.init()\n\nfunction {}()\n    __state = game.update(__state)\n    game.render(__state)\nend\n",
         lua_quote(&import_path),
@@ -1493,11 +1500,11 @@ mod tests {
     };
 
     use super::{
-        PlaydateTemplateWorkflow,
-        ProjectOptions, build_playdate_command_with_overrides, check_command, compile_pipeline,
-        compile_pipeline_with_options, emit_lua_command, emit_lua_command_with_bootstrap_options,
-        emit_lua_command_with_overrides, init_playdate_template_command,
-        parse_playdate_bootstrap_options, resolve_output_path, resolve_project_options,
+        PlaydateTemplateWorkflow, ProjectOptions, build_playdate_command_with_overrides,
+        check_command, compile_pipeline, compile_pipeline_with_options, emit_lua_command,
+        emit_lua_command_with_bootstrap_options, emit_lua_command_with_overrides,
+        init_playdate_template_command, parse_playdate_bootstrap_options, resolve_output_path,
+        resolve_project_options,
     };
 
     fn render_diagnostics_for_source(file_name: &str, source: &str) -> String {
@@ -1939,6 +1946,12 @@ end
                 .iter()
                 .any(|d| d.message.contains("constructor argument count mismatch"))
         );
+        assert!(type_diags.items.iter().any(|d| {
+            d.message.contains("constructor argument count mismatch")
+                && d.notes
+                    .iter()
+                    .any(|(_, note)| note.contains("try `Some(arg1)`"))
+        }));
     }
 
     #[test]
@@ -2658,10 +2671,8 @@ end
             .duration_since(UNIX_EPOCH)
             .expect("time went backwards")
             .as_nanos();
-        let root = std::env::temp_dir().join(format!(
-            "callisto_playdate_bootstrap_customized_{}",
-            nonce
-        ));
+        let root =
+            std::env::temp_dir().join(format!("callisto_playdate_bootstrap_customized_{}", nonce));
         let out_dir = root.join("out");
         std::fs::create_dir_all(&root).expect("failed to create root");
 
@@ -2709,8 +2720,14 @@ end
             shim_text.contains("local __preload_0 = import \"playdate/input\""),
             "{shim_text}"
         );
-        assert!(shim_text.contains("playdate.input = __preload_0"), "{shim_text}");
-        assert!(shim_text.contains("import \"playdate/audio\""), "{shim_text}");
+        assert!(
+            shim_text.contains("playdate.input = __preload_0"),
+            "{shim_text}"
+        );
+        assert!(
+            shim_text.contains("import \"playdate/audio\""),
+            "{shim_text}"
+        );
         assert!(
             shim_text.contains("function playdate.gameUpdate()"),
             "{shim_text}"
@@ -3242,6 +3259,58 @@ end
     }
 
     #[test]
+    fn parser_accepts_trailing_commas_and_record_field_punning() {
+        let source = r#"
+type Option[T,] =
+  | None
+  | Some(T,)
+
+type Point {
+  x: Int,
+  y: Int,
+}
+
+fn add(
+  a: Int,
+  b: Int,
+) -> Int do
+  a + b
+end
+
+fn from_opt(v: Option[Int]) -> Int do
+  match v do
+    case Some(x,) => x,
+    case None => 0,
+  end
+end
+
+fn main(x: Int) -> Int do
+  let base = add(
+    1,
+    2,
+  )
+  let p = Point {
+    x,
+    y = base,
+  }
+  match Some(p.x) do
+    case Some(v,) => v,
+    case None => 0,
+  end
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+    }
+
+    #[test]
     fn malformed_multiline_sum_reports_parser_error() {
         let source = r#"
 type Option[T] =
@@ -3446,6 +3515,96 @@ end
                 && d.notes
                     .iter()
                     .any(|(_, note)| note.contains("expected fields: x, y"))
+        }));
+        assert!(!type_diags.items.iter().any(|d| {
+            d.message.contains("unknown field 'z' in record update")
+                && d.notes
+                    .iter()
+                    .any(|(_, note)| note.contains("did you mean"))
+        }));
+    }
+
+    #[test]
+    fn unknown_record_field_reports_did_you_mean_fixit() {
+        let source = r#"
+type Point { x: Int, y: Int }
+
+fn main() -> Int do
+  let p = Point { xx = 1, y = 2 }
+  p.x
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.message
+                .contains("unknown field 'xx' in record initializer")
+                && d.notes
+                    .iter()
+                    .any(|(_, note)| note.contains("did you mean 'x'"))
+        }));
+    }
+
+    #[test]
+    fn duplicate_record_field_reports_fixit_note() {
+        let source = r#"
+type Point { x: Int, y: Int }
+
+fn main() -> Int do
+  let p = Point { x = 1, x = 2, y = 3 }
+  p.y
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.message
+                .contains("duplicate field 'x' in record initializer")
+                && d.notes
+                    .iter()
+                    .any(|(_, note)| note.contains("remove one of the duplicate 'x' fields"))
+        }));
+    }
+
+    #[test]
+    fn missing_record_field_reports_fixit_note() {
+        let source = r#"
+type Point { x: Int, y: Int }
+
+fn main() -> Int do
+  let p = Point { x = 1 }
+  p.x
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.message
+                .contains("missing field 'y' in record initializer")
+                && d.notes
+                    .iter()
+                    .any(|(_, note)| note.contains("add `y = ...`"))
         }));
     }
 
