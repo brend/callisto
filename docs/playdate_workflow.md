@@ -20,10 +20,15 @@ Current planning docs:
 
 Concretely:
 ```sh
-callisto init --template playdate my-game
+callisto init --template playdate my-game --workflow auto-bootstrap --starter-assets
 cd my-game
 callisto build-playdate src/game.cal --config callisto.toml --pdx Game.pdx --run
 ```
+
+`callisto init --template playdate` template knobs:
+- `--workflow auto-bootstrap` (default): Makefile uses generated bootstrap `main.lua`.
+- `--workflow manual-shim`: template includes `Source/main.lua` and manual-shim build flow.
+- `--starter-assets`: creates starter folders under `Source/` (`images`, `sounds`, `fonts`).
 
 `build-playdate` is the first-party happy-path command. It emits Lua with bootstrap, runs `pdc`, and optionally opens the simulator.
 You can still use `callisto build` + `pdc` manually when you need more control.
@@ -85,6 +90,11 @@ Playdate games work by assigning to `playdate.update`. You now have two options:
 1. **Auto shim:** `callisto build src/game.cal -o Source/ --playdate-bootstrap`
 2. **Manual shim:** keep a hand-written `Source/main.lua` file
 
+Auto shim customization flags:
+- `--playdate-bootstrap-target <lua.path>` to assign a custom update function (default `playdate.update`).
+- `--playdate-bootstrap-preload <module/path>` to preload modules before entry import.
+- `--playdate-bootstrap-preload <lua.path=module/path>` to preload and assign returned modules (for example `playdate.input=playdate/input`).
+
 Auto shim writes `Source/main.lua` that imports the compiled entry module and runs an explicit state loop each frame. It requires the entry module to export:
 
 ```callisto
@@ -120,7 +130,8 @@ end
 
 When Callisto emits multiple files, cross-module calls still rely on Playdate `import` at runtime.
 
-`--playdate-bootstrap` closes the most common gap by generating a `main.lua` shim automatically. For custom startup (multiple module preloads, init order, runtime state wiring), keep using a manual `main.lua` shim.
+`--playdate-bootstrap` closes the most common gap by generating a `main.lua` shim automatically, and now supports optional preload imports plus custom update assignment targets.
+Keep using a manual `main.lua` shim when you need startup logic beyond import/assignment (for example custom Lua control flow before/after each frame).
 
 Example manual preload shim:
 ```lua
@@ -158,7 +169,7 @@ The Playdate Simulator has a "Reload Game" hotkey (`⌘R`) — combine with fswa
 - `playdate_bouncing_ball/`: manual `Source/main.lua` shim pattern (state owned by Lua).
   Uses records, `impl` methods, sum types, generics, and `match` in gameplay logic.
 - `playdate_auto_bootstrap/`: auto-shim pattern using `--playdate-bootstrap`.
-  Includes explicit-transition scene navigation (`A` next, `B` previous), persisted session counters, and crank telemetry labels.
+  Includes explicit-transition scene navigation (`A` next, `B` previous), persisted session counters, crank telemetry labels, and graphics line overlays driven by shared `playdate.graphics.drawLine` bindings.
 
 ## What to Build Next (Priority Order)
 

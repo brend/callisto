@@ -180,6 +180,32 @@ fn pulse_label(ticks: Int) -> String do
   end
 end
 
+fn progress_width(scene_changes: Int) -> Int do
+  let max = 180
+  let raw = scene_changes * 12
+  if raw > max then
+    max
+  else
+    raw
+  end
+end
+
+fn direction_pointer_y(direction: CrankDirection) -> Int do
+  match direction do
+    case Clockwise => 28
+    case CounterClockwise => 52
+    case Still => 40
+  end
+end
+
+fn pulse_line_y(ticks: Int) -> Int do
+  if ticks % 120 < 60 then
+    232
+  else
+    228
+  end
+end
+
 fn build_view(base: ViewModel) -> ViewModel do
   let transition = read_transition()
   let scene = apply_transition(base.scene, transition)
@@ -218,6 +244,10 @@ end
 
 pub fn render(model: ViewModel) -> Unit do
   graphics.clear()
+  graphics.drawLine(20, 74, 380, 74)
+  graphics.drawLine(360, 40, 392, direction_pointer_y(model.direction))
+  let pulse_y = pulse_line_y(model.ticks)
+  graphics.drawLine(20, pulse_y, 20 + progress_width(model.scene_changes), pulse_y)
   graphics.drawText("Callisto + Playdate", 20, 20)
   graphics.drawText("Auto bootstrap state demo", 20, 40)
   graphics.drawText(model.heading(), 20, 60)

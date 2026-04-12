@@ -30,11 +30,11 @@ cargo install --path . --locked
 
 ```
 callisto parse    <file.cal>                  # Parse and dump the AST
-callisto init     --template playdate <dir>   # Scaffold a Playdate project
+callisto init     --template playdate <dir> [--workflow auto-bootstrap|manual-shim] [--starter-assets]
 callisto check    <file.cal> [--config path] [--module-root path]...
-callisto emit-lua <file.cal> [-o out.lua|dir] [--config path] [--module-root path]... [--playdate-bootstrap]
-callisto build    <file.cal> [-o out.lua|dir] [--config path] [--module-root path]... [--playdate-bootstrap]
-callisto build-playdate <file.cal> [--source-dir dir] [--pdx bundle.pdx] [--pdc exe] [--run] [--config path] [--module-root path]...
+callisto emit-lua <file.cal> [-o out.lua|dir] [--config path] [--module-root path]... [--playdate-bootstrap] [--playdate-bootstrap-target lua.path] [--playdate-bootstrap-preload module/path|lua.path=module/path]...
+callisto build    <file.cal> [-o out.lua|dir] [--config path] [--module-root path]... [--playdate-bootstrap] [--playdate-bootstrap-target lua.path] [--playdate-bootstrap-preload module/path|lua.path=module/path]...
+callisto build-playdate <file.cal> [--source-dir dir] [--pdx bundle.pdx] [--pdc exe] [--run] [--config path] [--module-root path]... [--playdate-bootstrap-target lua.path] [--playdate-bootstrap-preload module/path|lua.path=module/path]...
 ```
 
 Default output precedence:
@@ -42,9 +42,14 @@ Default output precedence:
 - If `-o` is not provided and config has `out_dir`, config `out_dir` is used.
 - Otherwise output defaults to `out/`.
 - `--playdate-bootstrap` (directory output only) writes `main.lua` that imports the entry module, initializes state, then calls `update(state)` and `render(state)` every frame.
+- `--playdate-bootstrap-target` changes the assigned update function path (default: `playdate.update`).
+- `--playdate-bootstrap-preload` adds preload imports before entry import; use `lua.path=module/path` to assign returned modules.
 
 Playdate-first workflow:
 - `callisto init --template playdate <dir>` scaffolds a project with `callisto.toml`, `src/game.cal`, and a Makefile.
+- `--workflow auto-bootstrap` (default) emits a template Makefile wired for `--playdate-bootstrap`.
+- `--workflow manual-shim` adds `Source/main.lua` and a manual-shim Makefile flow.
+- `--starter-assets` adds starter directories: `Source/images`, `Source/sounds`, and `Source/fonts`.
 - `callisto build-playdate <entry.cal>` runs Lua emission with bootstrap + `pdc` in one command.
 
 ## Configuration (v0.2)

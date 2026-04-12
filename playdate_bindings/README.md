@@ -5,7 +5,7 @@ Shared extern module declarations for Playdate SDK access from Callisto projects
 ## Layout
 
 - `src/playdate.cal`: root `playdate.*` functions
-- `src/playdate/graphics.cal`: graphics APIs
+- `src/playdate/graphics.cal`: graphics APIs (`clear`, `drawText`, `setColor`, `drawLine`)
 - `src/playdate/input.cal`: button/input helpers
 - `src/playdate/audio.cal`: sound helpers
 - `src/playdate/system.cal`: system wrappers (crank position helpers)

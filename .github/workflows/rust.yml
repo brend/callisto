@@ -27,6 +27,22 @@ jobs:
         make -C playdate_bouncing_ball build-lua
         make -C playdate_auto_bootstrap build-lua
 
+    - name: Playdate init template smoke (both workflows)
+      run: |
+        set -euo pipefail
+        workspace="$(mktemp -d)"
+        auto_dir="$workspace/auto"
+        manual_dir="$workspace/manual"
+
+        target/debug/callisto init --template playdate "$auto_dir" --workflow auto-bootstrap --starter-assets
+        target/debug/callisto init --template playdate --workflow manual-shim "$manual_dir"
+
+        test -d "$auto_dir/Source/images"
+        test -f "$manual_dir/Source/main.lua"
+
+        make -C "$auto_dir" build-lua
+        make -C "$manual_dir" build-lua
+
     - name: Debug binary smoke checks
       run: |
         set -euo pipefail

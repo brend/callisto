@@ -19,6 +19,9 @@ local scene_hint
 local session_label
 local engagement_label
 local pulse_label
+local progress_width
+local direction_pointer_y
+local pulse_line_y
 local build_view
 local init
 local update
@@ -101,12 +104,26 @@ pulse_label = function(ticks)
     return (function() if ((ticks % 120) < 60) then return "Pulse: high" else return "Pulse: low" end end)()
 end
 
+progress_width = function(scene_changes)
+    local l21 = 180
+    local l22 = (scene_changes * 12)
+    return (function() if (l22 > l21) then return l21 else return l22 end end)()
+end
+
+direction_pointer_y = function(direction)
+    return (function(__scrutinee) if __scrutinee.tag == "Clockwise" then return 28 elseif __scrutinee.tag == "CounterClockwise" then return 52 elseif __scrutinee.tag == "Still" then return 40 else error("non-exhaustive match") end end)(direction)
+end
+
+pulse_line_y = function(ticks)
+    return (function() if ((ticks % 120) < 60) then return 232 else return 228 end end)()
+end
+
 build_view = function(base)
-    local l21 = read_transition()
-    local l22 = apply_transition(base.scene, l21)
-    local l23 = (function(__base) local __tmp = {}; for k, v in pairs(__base) do __tmp[k] = v end; __tmp.scene = l22; __tmp.direction = read_direction(playdate.getCrankChange()); __tmp.side = read_side(playdate.getCrankPosition()); __tmp.ticks = (base.ticks + 1); __tmp.scene_changes = (base.scene_changes + transition_delta(l21)); __tmp.last_transition = l21; return __tmp end)(base)
-    local l24 = (function(__base) local __tmp = {}; for k, v in pairs(__base) do __tmp[k] = v end; __tmp.pilot_frames = bump_pilot_frames(l22, l23.pilot_frames); return __tmp end)(l23)
-    return (function(__base) local __tmp = {}; for k, v in pairs(__base) do __tmp[k] = v end; __tmp.telemetry_frames = bump_telemetry_frames(l22, l24.telemetry_frames); return __tmp end)(l24)
+    local l26 = read_transition()
+    local l27 = apply_transition(base.scene, l26)
+    local l28 = (function(__base) local __tmp = {}; for k, v in pairs(__base) do __tmp[k] = v end; __tmp.scene = l27; __tmp.direction = read_direction(playdate.getCrankChange()); __tmp.side = read_side(playdate.getCrankPosition()); __tmp.ticks = (base.ticks + 1); __tmp.scene_changes = (base.scene_changes + transition_delta(l26)); __tmp.last_transition = l26; return __tmp end)(base)
+    local l29 = (function(__base) local __tmp = {}; for k, v in pairs(__base) do __tmp[k] = v end; __tmp.pilot_frames = bump_pilot_frames(l27, l28.pilot_frames); return __tmp end)(l28)
+    return (function(__base) local __tmp = {}; for k, v in pairs(__base) do __tmp[k] = v end; __tmp.telemetry_frames = bump_telemetry_frames(l27, l29.telemetry_frames); return __tmp end)(l29)
 end
 
 init = function()
@@ -119,6 +136,10 @@ end
 
 render = function(model)
     local _ = playdate.graphics.clear()
+    local _ = playdate.graphics.drawLine(20, 74, 380, 74)
+    local _ = playdate.graphics.drawLine(360, 40, 392, direction_pointer_y(model.direction))
+    local l32 = pulse_line_y(model.ticks)
+    local _ = playdate.graphics.drawLine(20, l32, (20 + progress_width(model.scene_changes)), l32)
     local _ = playdate.graphics.drawText("Callisto + Playdate", 20, 20)
     local _ = playdate.graphics.drawText("Auto bootstrap state demo", 20, 40)
     local _ = playdate.graphics.drawText(ViewModel_heading(model), 20, 60)

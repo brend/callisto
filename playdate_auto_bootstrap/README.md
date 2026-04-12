@@ -14,6 +14,10 @@ It also tracks persisted session metrics:
 - last transition direction
 
 Crank direction and crank-side labels are still rendered every frame.
+The HUD now also draws line overlays for:
+- scene-row separation
+- crank direction pointer
+- session pulse/progress bar tied to transition count
 
 ## Layout
 
@@ -35,6 +39,16 @@ Or use the first-party one-command path:
 
 ```sh
 ../target/debug/callisto build-playdate src/game.cal --config callisto.toml --pdx AutoBootstrap.pdx
+```
+
+Optional bootstrap customization (same command family):
+
+```sh
+../target/debug/callisto emit-lua src/game.cal -o Source --config callisto.toml \
+  --playdate-bootstrap \
+  --playdate-bootstrap-target playdate.gameUpdate \
+  --playdate-bootstrap-preload playdate.input=playdate/input \
+  --playdate-bootstrap-preload playdate.audio=playdate/audio
 ```
 
 To build `.pdx` (requires Playdate SDK `pdc`):
