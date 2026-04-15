@@ -10,11 +10,13 @@ extern module playdate.audio do
   extern fn reset_chime() -> Unit
 end
 
+newtype SfxCode = Int
+
 type Ball {
   x: Int,
   y: Int,
   vx: Int,
-  vy: Int
+  vy: Int,
 }
 
 type ControlMode = | Crank | Buttons
@@ -24,7 +26,7 @@ type StepResult = | Continue(Ball, Maybe[Sfx]) | Reset
 
 type Integrated {
   ball: Ball,
-  sfx: Maybe[Sfx]
+  sfx: Maybe[Sfx],
 }
 
 impl Ball do
@@ -119,13 +121,13 @@ fn control_delta(mode: ControlMode, crank_delta: Int) -> Int do
   end
 end
 
-fn sfx_code(sfx: Sfx) -> Int do
+fn sfx_code(sfx: Sfx) -> SfxCode do
   match sfx do
-    case Bounce => 1
+    case Bounce => SfxCode(1)
   end
 end
 
-fn maybe_sfx_code(effect: Maybe[Sfx]) -> Maybe[Int] do
+fn maybe_sfx_code(effect: Maybe[Sfx]) -> Maybe[SfxCode] do
   match effect do
     case Some(value) => Some(sfx_code(value))
     case None => None
@@ -143,8 +145,8 @@ fn detect_bounce_sfx(next_vx: Int, prior_vx: Int, next_vy: Int, target_vy: Int) 
 end
 
 fn play_sfx(effect: Maybe[Sfx]) -> Unit do
-  let code = unwrap_or(maybe_sfx_code(effect), 0)
-  if code == 1 then
+  let code = unwrap_or(maybe_sfx_code(effect), SfxCode(0))
+  if code == SfxCode(1) then
     audio.bounce_blip()
   else
     ()
@@ -162,15 +164,14 @@ fn integrate_ball(ball: Ball, vy_delta: Int) -> Integrated do
   let next_vy = bounce_y(moved.y, target_vy)
   let effect = detect_bounce_sfx(next_vx, ball.vx, next_vy, target_vy)
 
-  Integrated {
-    ball = moved with {
-      x = next_x,
-      y = next_y,
-      vx = next_vx,
-      vy = next_vy
-    },
-    sfx = effect
+  let ball = moved with {
+    x = next_x,
+    y = next_y,
+    vx = next_vx,
+    vy = next_vy
   }
+  let sfx = effect
+  Integrated { ball, sfx }
 end
 
 fn decide_step(ball: Ball, mode: ControlMode, crank_delta: Int) -> StepResult do

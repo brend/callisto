@@ -3518,6 +3518,37 @@ end
     }
 
     #[test]
+    fn record_field_punning_all_shorthand_compiles_and_codegen() {
+        let source = r#"
+type Pair { a: Int, b: Int }
+
+fn make(a: Int, b: Int) -> Pair do
+  Pair { a, b }
+end
+
+fn swap(p: Pair) -> Pair do
+  let a = p.b
+  let b = p.a
+  Pair { a, b }
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (tir, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+
+        let lua = codegen_lua::emit_lua_module(&tir, &resolved);
+        // Both fields emitted as locals, not as literal field names
+        assert!(lua.contains("a ="), "{lua}");
+        assert!(lua.contains("b ="), "{lua}");
+    }
+
+    #[test]
     fn parser_accepts_newtype_declarations() {
         let source = r#"
 newtype UserId = Int

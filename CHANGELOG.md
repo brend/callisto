@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.6.0] - 2026-04-12
+## [0.6.0] - 2026-04-15
 
 ### Added
 - `v0.6` draft planning docs centered on language completeness:
@@ -35,6 +35,8 @@ All notable changes to this project will be documented in this file.
   - `CAL-TYP-024` for constructor-pattern record-field unknown/duplicate/missing diagnostics.
 - Constructor-pattern shape errors now avoid noisy cascades while still binding pattern locals in error paths.
 - Expanded v0.6 language conformance matrix with concrete parser/typechecker/codegen test references across declarations, expressions, patterns, modules, and extern interop.
+- Regression test for all-shorthand record field punning in initializers (`record_field_punning_all_shorthand_compiles_and_codegen`).
+- `playdate_bouncing_ball` sample now demonstrates `v0.6` language features: `newtype SfxCode = Int` for nominal sound-effect codes, trailing commas in multiline type field lists, and all-shorthand field punning (`Integrated { ball, sfx }`).
 
 ## [0.5.0] - 2026-04-12
 
