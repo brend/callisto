@@ -3,9 +3,9 @@ name = "Callisto"
 version = "0.1.0"
 schema_version = 1
 authors = ["Callisto contributors"]
-description = "Syntax highlighting for Callisto (.cal, .luna)."
-repository = "https://github.com/callisto-lang/callisto"
+description = "Syntax highlighting for Callisto (.cal)."
+repository = "https://github.com/brend/callisto"
 
 [grammars.callisto]
-repository = "file:///Users/waldrumpus/code/callisto/editors/zed/callisto-syntax/tree-sitter-callisto"
-commit = "HEAD"
+repository = "https://github.com/brend/tree-sitter-callisto"
+commit = "85b22ef5a45e4c105275a15142426354da755e67"

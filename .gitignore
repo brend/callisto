@@ -2,3 +2,4 @@
 .DS_Store
 out/
 *.pdx
+editors/zed/callisto-syntax/grammars/
