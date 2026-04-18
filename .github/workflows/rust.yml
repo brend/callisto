@@ -33,15 +33,17 @@ jobs:
         workspace="$(mktemp -d)"
         auto_dir="$workspace/auto"
         manual_dir="$workspace/manual"
+        callisto_bin="$GITHUB_WORKSPACE/target/debug/callisto"
 
         target/debug/callisto init --template playdate "$auto_dir" --workflow auto-bootstrap --starter-assets
         target/debug/callisto init --template playdate --workflow manual-shim "$manual_dir"
 
         test -d "$auto_dir/Source/images"
         test -f "$manual_dir/Source/main.lua"
+        test -x "$callisto_bin"
 
-        make -C "$auto_dir" build-lua
-        make -C "$manual_dir" build-lua
+        make -C "$auto_dir" build-lua CALLISTO="$callisto_bin"
+        make -C "$manual_dir" build-lua CALLISTO="$callisto_bin"
 
     - name: Debug binary smoke checks
       run: |
