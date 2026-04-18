@@ -965,31 +965,126 @@ fn synthesize_import_declarations(
             }
         }
 
-        for decl in &imported.ast.decls {
-            let extern_type = match decl {
+        let public_concrete_type_decls: HashMap<String, ast::TypeDecl> = imported
+            .ast
+            .decls
+            .iter()
+            .filter_map(|decl| match decl {
                 ast::TopDecl::Type(type_decl)
                     if matches!(type_decl.vis, ast::Visibility::Public) =>
                 {
-                    Some(ast::ExternTypeDecl {
-                        span: type_decl.span,
-                        vis: ast::Visibility::Private,
-                        name: type_decl.name.clone(),
-                        type_params: type_decl.type_params.clone(),
-                    })
+                    Some((type_decl.name.clone(), type_decl.clone()))
                 }
+                _ => None,
+            })
+            .collect();
+        let public_extern_type_names: HashSet<String> = imported
+            .ast
+            .decls
+            .iter()
+            .filter_map(|decl| match decl {
                 ast::TopDecl::ExternType(type_decl)
                     if matches!(type_decl.vis, ast::Visibility::Public) =>
                 {
-                    let mut ty = type_decl.clone();
-                    ty.vis = ast::Visibility::Private;
-                    Some(ty)
+                    Some(type_decl.name.clone())
                 }
                 _ => None,
-            };
-            if let Some(extern_type) = extern_type
-                && known_type_names.insert(extern_type.name.clone())
-            {
-                ast.decls.push(ast::TopDecl::ExternType(extern_type));
+            })
+            .collect();
+
+        let mut requested_concrete_type_names = HashSet::new();
+        if let Some(items) = &import.items {
+            for item in items {
+                if public_concrete_type_decls.contains_key(item) {
+                    requested_concrete_type_names.insert(item.clone());
+                }
+            }
+        }
+
+        if !requested_concrete_type_names.is_empty() {
+            let mut concrete_type_names_to_import = HashSet::new();
+            let mut extern_type_names_to_import = HashSet::new();
+            let mut pending = VecDeque::new();
+
+            for name in requested_concrete_type_names {
+                if concrete_type_names_to_import.insert(name.clone()) {
+                    pending.push_back(name);
+                }
+            }
+
+            while let Some(name) = pending.pop_front() {
+                let Some(type_decl) = public_concrete_type_decls.get(&name) else {
+                    continue;
+                };
+                for referenced_name in collect_type_decl_named_refs(type_decl) {
+                    if public_concrete_type_decls.contains_key(&referenced_name) {
+                        if concrete_type_names_to_import.insert(referenced_name.clone()) {
+                            pending.push_back(referenced_name);
+                        }
+                    } else if public_extern_type_names.contains(&referenced_name) {
+                        extern_type_names_to_import.insert(referenced_name);
+                    }
+                }
+            }
+
+            if let Some(items) = &import.items {
+                for item in items {
+                    if public_extern_type_names.contains(item) {
+                        extern_type_names_to_import.insert(item.clone());
+                    }
+                }
+            }
+
+            for decl in &imported.ast.decls {
+                match decl {
+                    ast::TopDecl::Type(type_decl)
+                        if matches!(type_decl.vis, ast::Visibility::Public)
+                            && concrete_type_names_to_import.contains(&type_decl.name)
+                            && known_type_names.insert(type_decl.name.clone()) =>
+                    {
+                        let mut ty = type_decl.clone();
+                        ty.vis = ast::Visibility::Private;
+                        ast.decls.push(ast::TopDecl::Type(ty));
+                    }
+                    ast::TopDecl::ExternType(type_decl)
+                        if matches!(type_decl.vis, ast::Visibility::Public)
+                            && extern_type_names_to_import.contains(&type_decl.name)
+                            && known_type_names.insert(type_decl.name.clone()) =>
+                    {
+                        let mut ty = type_decl.clone();
+                        ty.vis = ast::Visibility::Private;
+                        ast.decls.push(ast::TopDecl::ExternType(ty));
+                    }
+                    _ => {}
+                }
+            }
+        } else {
+            for decl in &imported.ast.decls {
+                let extern_type = match decl {
+                    ast::TopDecl::Type(type_decl)
+                        if matches!(type_decl.vis, ast::Visibility::Public) =>
+                    {
+                        Some(ast::ExternTypeDecl {
+                            span: type_decl.span,
+                            vis: ast::Visibility::Private,
+                            name: type_decl.name.clone(),
+                            type_params: type_decl.type_params.clone(),
+                        })
+                    }
+                    ast::TopDecl::ExternType(type_decl)
+                        if matches!(type_decl.vis, ast::Visibility::Public) =>
+                    {
+                        let mut ty = type_decl.clone();
+                        ty.vis = ast::Visibility::Private;
+                        Some(ty)
+                    }
+                    _ => None,
+                };
+                if let Some(extern_type) = extern_type
+                    && known_type_names.insert(extern_type.name.clone())
+                {
+                    ast.decls.push(ast::TopDecl::ExternType(extern_type));
+                }
             }
         }
 
@@ -1005,6 +1100,59 @@ fn synthesize_import_declarations(
     }
 
     ast
+}
+
+fn collect_type_decl_named_refs(type_decl: &ast::TypeDecl) -> Vec<String> {
+    let mut refs = Vec::new();
+    match &type_decl.body {
+        ast::TypeDeclBody::Alias(expr) | ast::TypeDeclBody::Newtype(expr) => {
+            collect_type_expr_named_refs(expr, &mut refs);
+        }
+        ast::TypeDeclBody::Record(fields) => {
+            for field in fields {
+                collect_type_expr_named_refs(&field.ty, &mut refs);
+            }
+        }
+        ast::TypeDeclBody::Sum(variants) => {
+            for variant in variants {
+                match &variant.payload {
+                    ast::SumVariantPayload::None => {}
+                    ast::SumVariantPayload::Positional(types) => {
+                        for ty in types {
+                            collect_type_expr_named_refs(ty, &mut refs);
+                        }
+                    }
+                    ast::SumVariantPayload::Record(fields) => {
+                        for field in fields {
+                            collect_type_expr_named_refs(&field.ty, &mut refs);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    refs
+}
+
+fn collect_type_expr_named_refs(expr: &ast::TypeExpr, refs: &mut Vec<String>) {
+    match &expr.kind {
+        ast::TypeExprKind::Named { name, args } => {
+            refs.push(name.clone());
+            for arg in args {
+                collect_type_expr_named_refs(arg, refs);
+            }
+        }
+        ast::TypeExprKind::Func { params, ret } => {
+            for param in params {
+                collect_type_expr_named_refs(param, refs);
+            }
+            collect_type_expr_named_refs(ret, refs);
+        }
+        ast::TypeExprKind::Nullable { inner } => {
+            collect_type_expr_named_refs(inner, refs);
+        }
+        ast::TypeExprKind::Nil | ast::TypeExprKind::Unit => {}
+    }
 }
 
 fn resolve_output_path(output: Option<&Path>, input: &Path, ast: &ast::Module) -> PathBuf {
@@ -2314,6 +2462,104 @@ end
         let (_, _, diagnostics, compiled) = compile_pipeline(&entry).expect("pipeline failed");
         assert!(!diagnostics.has_errors(), "{:?}", diagnostics.items);
         assert!(compiled.is_some());
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn compile_pipeline_import_item_type_enables_cross_module_record_usage() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_type_import_items_{}", nonce));
+        let lib_dir = root.join("lib");
+        std::fs::create_dir_all(&lib_dir).expect("failed to create temp dirs");
+
+        let lib = lib_dir.join("math.luna");
+        std::fs::write(
+            &lib,
+            r#"
+module lib.math
+
+pub type Pair { x: Int, y: Int }
+
+pub fn mk() -> Pair do
+  Pair { x = 10, y = 32 }
+end
+"#,
+        )
+        .expect("failed to write lib module");
+
+        let entry = root.join("main.luna");
+        std::fs::write(
+            &entry,
+            r#"
+module app
+
+import lib.math.{Pair}
+
+fn main() -> Int do
+  let p = Pair { x = 1, y = 2 }
+  p.x + math.mk().y
+end
+"#,
+        )
+        .expect("failed to write entry module");
+
+        let (_, _, diagnostics, compiled) = compile_pipeline(&entry).expect("pipeline failed");
+        assert!(!diagnostics.has_errors(), "{:?}", diagnostics.items);
+        assert!(compiled.is_some());
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn compile_pipeline_plain_import_keeps_imported_type_opaque() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_type_import_plain_{}", nonce));
+        let lib_dir = root.join("lib");
+        std::fs::create_dir_all(&lib_dir).expect("failed to create temp dirs");
+
+        let lib = lib_dir.join("math.luna");
+        std::fs::write(
+            &lib,
+            r#"
+module lib.math
+
+pub type Pair { x: Int, y: Int }
+"#,
+        )
+        .expect("failed to write lib module");
+
+        let entry = root.join("main.luna");
+        std::fs::write(
+            &entry,
+            r#"
+module app
+
+import lib.math
+
+fn main() -> Int do
+  let p = Pair { x = 1, y = 2 }
+  p.x
+end
+"#,
+        )
+        .expect("failed to write entry module");
+
+        let (_, _, diagnostics, compiled) = compile_pipeline(&entry).expect("pipeline failed");
+        assert!(diagnostics.has_errors());
+        assert!(compiled.is_none());
+        assert!(
+            diagnostics
+                .items
+                .iter()
+                .any(|d| d.message.contains("type 'Pair' is not a record type"))
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }
