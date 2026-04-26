@@ -2,24 +2,24 @@ module playdate.audio
 
 import playdate.sound
 
-extern module playdate.sound do
+extern module playdate.sound {
   extern fn playNote(frequency: Float, length: Float, waveform: Int) -> Unit
-end
+}
 
-fn wave_square() -> Int do
+fn wave_square() -> Int {
   1
-end
+}
 
-fn wave_triangle() -> Int do
+fn wave_triangle() -> Int {
   2
-end
+}
 
-pub fn bounce_blip() -> Unit do
+pub fn bounce_blip() -> Unit {
   sound.playNote(720.0, 0.04, wave_square())
   ()
-end
+}
 
-pub fn reset_chime() -> Unit do
+pub fn reset_chime() -> Unit {
   sound.playNote(440.0, 0.08, wave_triangle())
   ()
-end
+}

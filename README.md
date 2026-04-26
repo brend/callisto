@@ -121,13 +121,13 @@ module geometry
 
 type Vec2 { x: Float, y: Float }
 
-fn length_sq(v: Vec2) -> Float do
+fn length_sq(v: Vec2) -> Float {
   v.x * v.x + v.y * v.y
-end
+}
 
-pub fn translate(v: Vec2, dx: Float, dy: Float) -> Vec2 do
+pub fn translate(v: Vec2, dx: Float, dy: Float) -> Vec2 {
   v with { x = v.x + dx, y = v.y + dy }
-end
+}
 ```
 
 Transpiles to:
@@ -156,20 +156,20 @@ return M
 ### Sum types and pattern matching
 
 ```
-fn unwrap_or(value: Option[Int], fallback: Int) -> Int do
-  match value do
+fn unwrap_or(value: Option[Int], fallback: Int) -> Int {
+  match value {
     case Some(v) => v
     case None    => fallback
-  end
-end
+  }
+}
 
-pub fn safe_div(a: Int, b: Int) -> Option[Int] do
-  if b == 0 then
+pub fn safe_div(a: Int, b: Int) -> Option[Int] {
+  if b == 0 {
     None
-  else
+  } else {
     Some(a / b)
-  end
-end
+  }
+}
 ```
 
 `Option[T]`, `Some(T)`, and `None` are provided by the standard prelude.
@@ -177,11 +177,11 @@ end
 ### Lists
 
 ```
-pub fn doubled_count() -> Int do
+pub fn doubled_count() -> Int {
   let xs: List[Int] = [1, 2, 3]
   let doubled = map(xs, fn (x: Int) -> Int => x * 2)
   length(doubled)
-end
+}
 ```
 
 `List[T]` is backed by Lua array tables. Empty list literals such as `[]` require an expected `List[T]` type from an annotation, return type, field, or argument context.
@@ -196,10 +196,10 @@ extern module playdate.graphics {
   fn drawText(text: String, x: Int, y: Int) -> Unit
 }
 
-pub fn render(msg: String) -> Unit do
+pub fn render(msg: String) -> Unit {
   playdate.graphics.clear()
   playdate.graphics.drawText(msg, 10, 10)
-end
+}
 ```
 
 ## Language reference
@@ -226,9 +226,9 @@ count = count + 1
 ### Functions
 
 ```
-fn add(a: Int, b: Int) -> Int do
+fn add(a: Int, b: Int) -> Int {
   a + b
-end
+}
 
 let double = fn (x: Int) -> Int => x * 2
 ```
@@ -240,38 +240,38 @@ Multiline parameter/argument/payload/match-arm lists may include trailing commas
 ```
 type Point { x: Int, y: Int }
 
-fn make(x: Int) -> Point do
+fn make(x: Int) -> Point {
   Point { x, y = 0 }
-end
+}
 ```
 
 ### Control flow
 
 ```
 -- if expression
-if score > 100 then
+if score > 100 {
   "great"
-elseif score > 50 then
+} else if score > 50 {
   "ok"
-else
+} else {
   "try again"
-end
+}
 
 -- while loop
-while alive do
+while alive {
   tick()
-end
+}
 
 -- range for loop
-for i in 0..10 do
+for i in 0..10 {
   process(i)
-end
+}
 
 -- match expression
-match shape do
+match shape {
   case Circle(r)         => 3.14 * r * r
   case Rect { w, h }     => w * h
-end
+}
 ```
 
 ### Modules
@@ -312,7 +312,7 @@ source → lexer → parser → AST → name resolution → type checking → TI
 
 See [`docs/luna_compiler_architecture_v0_1.md`](docs/luna_compiler_architecture_v0_1.md) for the full design.
 
-Recent release completion, active `v0.6` planning, and the path to `v1.0` are tracked in:
+Recent release completion, active planning, and the path to `v1.0` are tracked in:
 - [`docs/roadmap_to_1_0.md`](docs/roadmap_to_1_0.md)
 - [`docs/v0_3_draft_plan.md`](docs/v0_3_draft_plan.md)
 - [`docs/v0_3_m4_release_checklist.md`](docs/v0_3_m4_release_checklist.md)
@@ -329,3 +329,15 @@ Recent release completion, active `v0.6` planning, and the path to `v1.0` are tr
 - [`docs/v0_6_m2_match_analysis_execution_checklist.md`](docs/v0_6_m2_match_analysis_execution_checklist.md)
 - [`docs/v0_6_m3_pattern_conformance_execution_checklist.md`](docs/v0_6_m3_pattern_conformance_execution_checklist.md)
 - [`docs/v0_6_m4_release_checklist.md`](docs/v0_6_m4_release_checklist.md)
+- [`docs/v0_7_draft_plan.md`](docs/v0_7_draft_plan.md)
+- [`docs/v0_7_m0_scope_freeze_checklist.md`](docs/v0_7_m0_scope_freeze_checklist.md)
+- [`docs/v0_7_m1_option_prelude_execution_checklist.md`](docs/v0_7_m1_option_prelude_execution_checklist.md)
+- [`docs/v0_7_m2_list_helpers_execution_checklist.md`](docs/v0_7_m2_list_helpers_execution_checklist.md)
+- [`docs/v0_7_m3_workflow_reliability_execution_checklist.md`](docs/v0_7_m3_workflow_reliability_execution_checklist.md)
+- [`docs/v0_7_m4_release_checklist.md`](docs/v0_7_m4_release_checklist.md)
+- [`docs/v0_8_draft_plan.md`](docs/v0_8_draft_plan.md)
+- [`docs/v0_8_m0_scope_freeze_checklist.md`](docs/v0_8_m0_scope_freeze_checklist.md)
+- [`docs/v0_8_m1_parser_migration_checklist.md`](docs/v0_8_m1_parser_migration_checklist.md)
+- [`docs/v0_8_m2_docs_samples_templates_checklist.md`](docs/v0_8_m2_docs_samples_templates_checklist.md)
+- [`docs/v0_8_m3_editor_feedback_checklist.md`](docs/v0_8_m3_editor_feedback_checklist.md)
+- [`docs/v0_8_m4_release_checklist.md`](docs/v0_8_m4_release_checklist.md)

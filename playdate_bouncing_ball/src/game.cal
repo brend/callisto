@@ -5,10 +5,10 @@ import playdate.input
 import playdate.audio
 import playdate.system
 
-extern module playdate.audio do
+extern module playdate.audio {
   extern fn bounce_blip() -> Unit
   extern fn reset_chime() -> Unit
-end
+}
 
 newtype SfxCode = Int
 
@@ -28,131 +28,131 @@ type Integrated {
   sfx: Option[Sfx],
 }
 
-impl Ball do
-  fn moved(self: Ball, dx: Int, dy: Int) -> Ball do
+impl Ball {
+  fn moved(self: Ball, dx: Int, dy: Int) -> Ball {
     self with { x = self.x + dx, y = self.y + dy }
-  end
-end
+  }
+}
 
-fn spawn_ball() -> Ball do
+fn spawn_ball() -> Ball {
   Ball { x = 200, y = 120, vx = 3, vy = 0 }
-end
+}
 
-fn unwrap_or[T](value: Option[T], fallback: T) -> T do
-  match value do
+fn unwrap_or[T](value: Option[T], fallback: T) -> T {
+  match value {
     case Some(v) => v
     case None => fallback
-  end
-end
+  }
+}
 
-fn clamp(v: Int, lo: Int, hi: Int) -> Int do
-  if v < lo then
+fn clamp(v: Int, lo: Int, hi: Int) -> Int {
+  if v < lo {
     lo
-  elseif v > hi then
+  } else if v > hi {
     hi
-  else
+  } else {
     v
-  end
-end
+  }
+}
 
-fn clamp_x(v: Int) -> Int do
+fn clamp_x(v: Int) -> Int {
   clamp(v, 0, 380)
-end
+}
 
-fn clamp_y(v: Int) -> Int do
+fn clamp_y(v: Int) -> Int {
   clamp(v, 20, 220)
-end
+}
 
-fn bounce_x(moved_x: Int, vx: Int) -> Int do
-  if moved_x < 0 then
+fn bounce_x(moved_x: Int, vx: Int) -> Int {
+  if moved_x < 0 {
     0 - vx
-  elseif moved_x > 380 then
+  } else if moved_x > 380 {
     0 - vx
-  else
+  } else {
     vx
-  end
-end
+  }
+}
 
-fn bounce_y(moved_y: Int, vy: Int) -> Int do
-  if moved_y < 20 then
+fn bounce_y(moved_y: Int, vy: Int) -> Int {
+  if moved_y < 20 {
     0 - vy
-  elseif moved_y > 220 then
+  } else if moved_y > 220 {
     0 - vy
-  else
+  } else {
     vy
-  end
-end
+  }
+}
 
-fn mode_label(mode: ControlMode) -> String do
-  match mode do
+fn mode_label(mode: ControlMode) -> String {
+  match mode {
     case Crank => "Mode: Crank (hold A for d-pad)"
     case Buttons => "Mode: D-pad (B resets)"
-  end
-end
+  }
+}
 
-fn crank_side_label() -> String do
-  if system.crank_is_right_half() then
+fn crank_side_label() -> String {
+  if system.crank_is_right_half() {
     "Crank side: right"
-  else
+  } else {
     "Crank side: left"
-  end
-end
+  }
+}
 
-fn choose_mode() -> ControlMode do
-  if input.a_pressed() then
+fn choose_mode() -> ControlMode {
+  if input.a_pressed() {
     Buttons
-  else
+  } else {
     Crank
-  end
-end
+  }
+}
 
-fn control_delta(mode: ControlMode, crank_delta: Int) -> Int do
-  match mode do
+fn control_delta(mode: ControlMode, crank_delta: Int) -> Int {
+  match mode {
     case Crank => crank_delta / 4
     case Buttons =>
-      if input.up_pressed() then
+      if input.up_pressed() {
         0 - 2
-      elseif input.down_pressed() then
+      } else if input.down_pressed() {
         2
-      else
+      } else {
         0
-      end
-  end
-end
+      }
+  }
+}
 
-fn sfx_code(sfx: Sfx) -> SfxCode do
-  match sfx do
+fn sfx_code(sfx: Sfx) -> SfxCode {
+  match sfx {
     case Bounce => SfxCode(1)
-  end
-end
+  }
+}
 
-fn maybe_sfx_code(effect: Option[Sfx]) -> Option[SfxCode] do
-  match effect do
+fn maybe_sfx_code(effect: Option[Sfx]) -> Option[SfxCode] {
+  match effect {
     case Some(value) => Some(sfx_code(value))
     case None => None
-  end
-end
+  }
+}
 
-fn detect_bounce_sfx(next_vx: Int, prior_vx: Int, next_vy: Int, target_vy: Int) -> Option[Sfx] do
-  if next_vx != prior_vx then
+fn detect_bounce_sfx(next_vx: Int, prior_vx: Int, next_vy: Int, target_vy: Int) -> Option[Sfx] {
+  if next_vx != prior_vx {
     Some(Bounce)
-  elseif next_vy != target_vy then
+  } else if next_vy != target_vy {
     Some(Bounce)
-  else
+  } else {
     None
-  end
-end
+  }
+}
 
-fn play_sfx(effect: Option[Sfx]) -> Unit do
+fn play_sfx(effect: Option[Sfx]) -> Unit {
   let code = unwrap_or(maybe_sfx_code(effect), SfxCode(0))
-  if code == SfxCode(1) then
+  if code == SfxCode(1) {
     audio.bounce_blip()
-  else
+  } else {
     ()
-  end
-end
+  }
+}
 
-fn integrate_ball(ball: Ball, vy_delta: Int) -> Integrated do
+fn integrate_ball(ball: Ball, vy_delta: Int) -> Integrated {
   let max_vy = 8
   let target_vy = clamp(ball.vy + vy_delta, 0 - max_vy, max_vy)
   let moved = ball.moved(ball.vx, target_vy)
@@ -171,18 +171,18 @@ fn integrate_ball(ball: Ball, vy_delta: Int) -> Integrated do
   }
   let sfx = effect
   Integrated { ball, sfx }
-end
+}
 
-fn decide_step(ball: Ball, mode: ControlMode, crank_delta: Int) -> StepResult do
-  if input.b_just_pressed() then
+fn decide_step(ball: Ball, mode: ControlMode, crank_delta: Int) -> StepResult {
+  if input.b_just_pressed() {
     Reset
-  else
+  } else {
     let integrated = integrate_ball(ball, control_delta(mode, crank_delta))
     Continue(integrated.ball, integrated.sfx)
-  end
-end
+  }
+}
 
-pub fn render(ball: Ball) -> Unit do
+pub fn render(ball: Ball) -> Unit {
   let mode = choose_mode()
   graphics.clear()
   graphics.drawText("O", ball.x, ball.y)
@@ -191,16 +191,16 @@ pub fn render(ball: Ball) -> Unit do
   graphics.drawText("B: reset ball", 8, 40)
   graphics.drawText(crank_side_label(), 8, 56)
   ()
-end
+}
 
-pub fn step(ball: Ball, crank_delta: Int) -> Ball do
+pub fn step(ball: Ball, crank_delta: Int) -> Ball {
   let mode = choose_mode()
-  match decide_step(ball, mode, crank_delta) do
+  match decide_step(ball, mode, crank_delta) {
     case Continue(next, effect) =>
       play_sfx(effect)
       next
     case Reset =>
       audio.reset_chime()
       spawn_ball()
-  end
-end
+  }
+}

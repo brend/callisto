@@ -1,11 +1,11 @@
 # Callisto v0.7 Draft Plan
 
-This document defines the active execution plan for `v0.7.0`.
+This document records the completed execution plan for `v0.7.0`.
 
 `v0.6.1` completed the core language-completeness foundation.  
 `v0.7.0` focuses on the first standard prelude surface and more reliable project workflows.
 
-Status: active.
+Status: complete as of 2026-04-26.
 
 ## Why v0.7
 
@@ -75,5 +75,5 @@ Status: active.
 - `M0`: complete.
 - `M1`: complete.
 - `M2`: complete.
-- `M3`: in progress.
-- `M4`: not started.
+- `M3`: complete.
+- `M4`: complete.

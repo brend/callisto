@@ -286,19 +286,19 @@ type State {
   frame: Int
 }
 
-pub fn init() -> State do
+pub fn init() -> State {
   State { frame = 0 }
-end
+}
 
-pub fn update(state: State) -> State do
+pub fn update(state: State) -> State {
   state with { frame = state.frame + 1 }
-end
+}
 
-pub fn render(state: State) -> Unit do
+pub fn render(state: State) -> Unit {
   graphics.clear()
   graphics.drawText("Hello from Callisto", 20.0, 40.0)
   ()
-end
+}
 "#;
     let readme = playdate_template_readme(&package_name, workflow, starter_assets);
     let makefile = playdate_template_makefile(workflow);
@@ -1779,34 +1779,34 @@ mod tests {
 type Point { x: Int, y: Int }
 type MaybeInt = | Missing | Present(Int)
 
-impl MaybeInt do
-  fn unwrap_or(self: MaybeInt, fallback: Int) -> Int do
-match self do
+impl MaybeInt {
+  fn unwrap_or(self: MaybeInt, fallback: Int) -> Int {
+match self {
 case Present(v) => v
 case Missing => fallback
-end
-  end
-end
+}
+  }
+}
 
-fn add(a: Int, b: Int) -> Int do
+fn add(a: Int, b: Int) -> Int {
 a + b
-end
+}
 
-pub fn main() -> Int do
+pub fn main() -> Int {
 let p = Point { x = 1, y = 2 }
 var total: Int = add(p.x, p.y)
-if true then
+if true {
 total = total + 1
-else
+} else {
 total = total + 2
-end
-for i in 0..1 do
+}
+for i in 0..1 {
 total = total + i
-end
+}
 let inc = fn (x: Int) -> Int => x + 1
 let m = Present(inc(total))
 m.unwrap_or(0)
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -1829,12 +1829,107 @@ end
     }
 
     #[test]
+    fn parser_accepts_v0_8_brace_block_forms() {
+        let source = r#"
+extern module foo.bar {
+  extern fn get() -> Int
+}
+
+type Flag = | On | Off
+
+impl Flag {
+  fn value(self: Flag) -> Int {
+    match self {
+      case On => 1
+      case Off => 0
+    }
+  }
+}
+
+fn main(flag: Bool) -> Int {
+  var total: Int = 0
+  while total < 2 {
+    total = total + 1
+  }
+  for i in 0..1 {
+    total = total + i
+  }
+  if flag {
+    total
+  } else if total > 1 {
+    foo.bar.get()
+  } else {
+    0
+  }
+}
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (_, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+    }
+
+    #[test]
+    fn parser_rejects_old_block_delimiters_with_migration_codes() {
+        let cases = [
+            "fn main() -> Int do\n0\nend\n",
+            "fn main() -> Int {\nif true then\n1\nelse\n0\nend\n}\n",
+            "fn main() -> Int {\nwhile true do\nreturn 0\nend\n0\n}\n",
+            "fn main() -> Int {\nfor i in 0..1 do\nreturn i\nend\n0\n}\n",
+            "impl Thing do\nfn value(self: Thing) -> Int { 0 }\nend\n",
+            "extern module foo.bar do\nextern fn get() -> Int\nend\n",
+            "fn main() -> Int {\nmatch true do\ncase true => 1\ncase false => 0\nend\n}\n",
+        ];
+
+        for source in cases {
+            let (tokens, lex_diags) = lexer::lex(0, source);
+            assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+            let (_, parse_diags) = parser::parse(tokens);
+            assert!(parse_diags.has_errors(), "{source}");
+            assert!(
+                parse_diags.items.iter().any(|d| {
+                    d.code.as_deref() == Some("CAL-PAR-001") && d.message.contains("use `{ ... }`")
+                }),
+                "{:?}",
+                parse_diags.items
+            );
+        }
+    }
+
+    #[test]
+    fn parser_rejects_elseif_with_migration_code() {
+        let source = r#"
+fn main(flag: Bool) -> Int {
+  if flag {
+    1
+  } elseif true {
+    2
+  } else {
+    0
+  }
+}
+"#;
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (_, parse_diags) = parser::parse(tokens);
+        assert!(parse_diags.has_errors());
+        assert!(
+            parse_diags.items.iter().any(|d| {
+                d.code.as_deref() == Some("CAL-PAR-002") && d.message.contains("else if cond")
+            }),
+            "{:?}",
+            parse_diags.items
+        );
+    }
+
+    #[test]
     fn typecheck_reports_assignment_to_immutable_parameter() {
         let source = r#"
-fn bad(x: Int) -> Int do
+fn bad(x: Int) -> Int {
 x = 2
 x
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -1863,7 +1958,7 @@ end
             .expect("time went backwards")
             .as_nanos();
         let path = std::env::temp_dir().join(format!("callisto_compile_pipeline_{}.luna", nonce));
-        std::fs::write(&path, "fn ok() -> Int do\n1\nend\n").expect("failed to write temp file");
+        std::fs::write(&path, "fn ok() -> Int {\n1\n}\n").expect("failed to write temp file");
 
         let (_, _, diagnostics, compiled) = compile_pipeline(&path).expect("pipeline failed");
         assert!(!diagnostics.has_errors(), "{:?}", diagnostics.items);
@@ -1981,8 +2076,7 @@ end
             .expect("time went backwards")
             .as_nanos();
         let path = std::env::temp_dir().join(format!("callisto_compile_errors_{}.luna", nonce));
-        std::fs::write(&path, "fn main() -> Int do\ntrue\nend\n")
-            .expect("failed to write temp file");
+        std::fs::write(&path, "fn main() -> Int {\ntrue\n}\n").expect("failed to write temp file");
 
         let (_, _, diagnostics, compiled) = compile_pipeline(&path).expect("pipeline failed");
         assert!(diagnostics.has_errors(), "{:?}", diagnostics.items);
@@ -2000,7 +2094,7 @@ end
         let root = std::env::temp_dir().join(format!("callisto_check_missing_cfg_{}", nonce));
         std::fs::create_dir_all(&root).expect("failed to create temp dir");
         let entry = root.join("main.luna");
-        std::fs::write(&entry, "fn main() -> Int do\n0\nend\n").expect("failed to write entry");
+        std::fs::write(&entry, "fn main() -> Int {\n0\n}\n").expect("failed to write entry");
         let missing = root.join("missing.toml");
 
         assert_eq!(check_command(&entry, Some(&missing), &[]).unwrap_err(), 2);
@@ -2017,7 +2111,7 @@ end
         let root = std::env::temp_dir().join(format!("callisto_check_bad_toml_{}", nonce));
         std::fs::create_dir_all(&root).expect("failed to create temp dir");
         let entry = root.join("main.luna");
-        std::fs::write(&entry, "fn main() -> Int do\n0\nend\n").expect("failed to write entry");
+        std::fs::write(&entry, "fn main() -> Int {\n0\n}\n").expect("failed to write entry");
         std::fs::write(root.join("callisto.toml"), "module_roots = [\n")
             .expect("failed to write config");
 
@@ -2035,7 +2129,7 @@ end
         let root = std::env::temp_dir().join(format!("callisto_check_bad_cfg_value_{}", nonce));
         std::fs::create_dir_all(&root).expect("failed to create temp dir");
         let entry = root.join("main.luna");
-        std::fs::write(&entry, "fn main() -> Int do\n0\nend\n").expect("failed to write entry");
+        std::fs::write(&entry, "fn main() -> Int {\n0\n}\n").expect("failed to write entry");
         std::fs::write(root.join("callisto.toml"), "module_roots = [\"\"]\n")
             .expect("failed to write config");
 
@@ -2081,11 +2175,11 @@ end
 type Point { x: Int, y: Int }
 type MaybeInt = | Missing | Present(Int)
 
-fn main() -> Int do
+fn main() -> Int {
 let p = Point { z = 1 }
 let m = Present(1, 2)
 p.x
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -2119,11 +2213,11 @@ end
         let source = r#"
 type MaybeInt = | Missing | Present(Int)
 
-fn unwrap(m: MaybeInt) -> Int do
-match m do
+fn unwrap(m: MaybeInt) -> Int {
+match m {
 case Present(v) => v
-end
-end
+}
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -2147,13 +2241,13 @@ end
         let source = r#"
 type MaybeInt = | Missing | Present(Int)
 
-fn main(m: MaybeInt) -> Int do
-  match m do
+fn main(m: MaybeInt) -> Int {
+  match m {
     case Present(x) => x
     case Present(_) => 0
     case Missing => 0
-  end
-end
+  }
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -2176,12 +2270,12 @@ end
     #[test]
     fn reports_unreachable_match_arm_after_catch_all() {
         let source = r#"
-fn main(x: Int) -> Int do
-  match x do
+fn main(x: Int) -> Int {
+  match x {
     case _ => 0
     case 1 => 1
-  end
-end
+  }
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -2204,11 +2298,11 @@ end
     #[test]
     fn reports_non_exhaustive_match_for_bool_cases() {
         let source = r#"
-fn main(flag: Bool) -> Int do
-  match flag do
+fn main(flag: Bool) -> Int {
+  match flag {
     case true => 1
-  end
-end
+  }
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -2229,13 +2323,13 @@ end
     #[test]
     fn complete_bool_match_flags_following_arm_as_unreachable() {
         let source = r#"
-fn main(flag: Bool) -> Int do
-  match flag do
+fn main(flag: Bool) -> Int {
+  match flag {
     case true => 1
     case false => 0
     case _ => 2
-  end
-end
+  }
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -2261,13 +2355,13 @@ end
         let source = r#"
 type MaybeInt = | Missing | Present(Int)
 
-fn main(m: MaybeInt) -> Int do
-  match m do
+fn main(m: MaybeInt) -> Int {
+  match m {
     case Present(_) => 1
     case Missing => 0
     case Present(x) => x
-  end
-end
+  }
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -2299,13 +2393,13 @@ end
     #[test]
     fn infers_generic_function_call_type_parameters() {
         let source = r#"
-fn id[T](x: T) -> T do
+fn id[T](x: T) -> T {
 x
-end
+}
 
-fn main() -> Int do
+fn main() -> Int {
 id(1)
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -2324,14 +2418,14 @@ end
 import foo.bar
 import foo.bar.{qux}
 
-extern module foo.bar do
+extern module foo.bar {
 extern fn baz() -> Int
 extern fn qux(x: Int) -> Int
-end
+}
 
-fn main() -> Int do
+fn main() -> Int {
 bar.baz() + qux(1)
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -2350,14 +2444,14 @@ end
 import foo.bar
 import foo.bar.{qux}
 
-extern module foo.bar do
+extern module foo.bar {
 extern fn baz() -> Int
 extern fn qux(x: Int) -> Int
-end
+}
 
-fn main() -> Int do
+fn main() -> Int {
 bar.baz() + qux(1)
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -2379,9 +2473,9 @@ end
         let source = r#"
 import foo.bar.{qux}
 
-fn main() -> Int do
+fn main() -> Int {
 qux(1)
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -2409,13 +2503,13 @@ end
         let source = r#"
 import foo.bar
 
-extern module foo.bar do
+extern module foo.bar {
 extern fn baz() -> Int
-end
+}
 
-fn main() -> Int do
+fn main() -> Int {
 bar.qux()
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -2454,9 +2548,9 @@ end
             r#"
 module lib.math
 
-pub fn add(a: Int, b: Int) -> Int do
+pub fn add(a: Int, b: Int) -> Int {
   a + b
-end
+}
 "#,
         )
         .expect("failed to write lib module");
@@ -2469,9 +2563,9 @@ module app
 
 import lib.math
 
-fn main() -> Int do
+fn main() -> Int {
   math.add(1, 2)
-end
+}
 "#,
         )
         .expect("failed to write entry module");
@@ -2499,9 +2593,9 @@ end
             r#"
 module lib.math
 
-fn hidden(x: Int) -> Int do
+fn hidden(x: Int) -> Int {
   x
-end
+}
 "#,
         )
         .expect("failed to write lib module");
@@ -2514,9 +2608,9 @@ module app
 
 import lib.math.{hidden}
 
-fn main() -> Int do
+fn main() -> Int {
   hidden(1)
-end
+}
 "#,
         )
         .expect("failed to write entry module");
@@ -2556,9 +2650,9 @@ module lib.math
 
 pub type Pair { x: Int, y: Int }
 
-pub fn mk() -> Pair do
+pub fn mk() -> Pair {
   Pair { x = 10, y = 32 }
-end
+}
 "#,
         )
         .expect("failed to write lib module");
@@ -2571,10 +2665,10 @@ module app
 
 import lib.math.{Pair}
 
-fn main() -> Int do
+fn main() -> Int {
   let p = Pair { x = 1, y = 2 }
   p.x + math.mk().y
-end
+}
 "#,
         )
         .expect("failed to write entry module");
@@ -2615,10 +2709,10 @@ module app
 
 import lib.math
 
-fn main() -> Int do
+fn main() -> Int {
   let p = Pair { x = 1, y = 2 }
   p.x
-end
+}
 "#,
         )
         .expect("failed to write entry module");
@@ -2661,9 +2755,9 @@ end
             r#"
 module foo.bar
 
-pub fn value() -> Int do
+pub fn value() -> Int {
   true
-end
+}
 "#,
         )
         .expect("failed to write root_a module");
@@ -2672,9 +2766,9 @@ end
             r#"
 module foo.bar
 
-pub fn value() -> Int do
+pub fn value() -> Int {
   1
-end
+}
 "#,
         )
         .expect("failed to write root_b module");
@@ -2687,9 +2781,9 @@ module app
 
 import foo.bar
 
-fn main() -> Int do
+fn main() -> Int {
   bar.value()
-end
+}
 "#,
         )
         .expect("failed to write entry module");
@@ -2729,9 +2823,9 @@ end
             r#"
 module lib.math
 
-pub fn add(a: Int, b: Int) -> Int do
+pub fn add(a: Int, b: Int) -> Int {
   true
-end
+}
 "#,
         )
         .expect("failed to write first root module");
@@ -2740,9 +2834,9 @@ end
             r#"
 module lib.math
 
-pub fn add(a: Int, b: Int) -> Int do
+pub fn add(a: Int, b: Int) -> Int {
   a + b
-end
+}
 "#,
         )
         .expect("failed to write second root module");
@@ -2754,9 +2848,9 @@ end
 module app
 import lib.math
 
-fn main() -> Int do
+fn main() -> Int {
   math.add(1, 2)
-end
+}
 "#,
         )
         .expect("failed to write entry");
@@ -2794,9 +2888,9 @@ end
             r#"
 module lib.math
 
-pub fn add(a: Int, b: Int) -> Int do
+pub fn add(a: Int, b: Int) -> Int {
   a + b
-end
+}
 "#,
         )
         .expect("failed to write lib module");
@@ -2809,9 +2903,9 @@ module app
 
 import lib.math
 
-fn main() -> Int do
+fn main() -> Int {
   math.add(1, 2)
-end
+}
 "#,
         )
         .expect("failed to write entry module");
@@ -2852,9 +2946,9 @@ module app
 
 import missing.mod
 
-fn main() -> Int do
+fn main() -> Int {
   0
-end
+}
 "#,
         )
         .expect("failed to write entry module");
@@ -2920,9 +3014,9 @@ end
             r#"
 module lib.math
 
-pub fn add(a: Int, b: Int) -> Int do
+pub fn add(a: Int, b: Int) -> Int {
   a + b
-end
+}
 "#,
         )
         .expect("failed to write lib module");
@@ -2935,9 +3029,9 @@ module app
 
 import lib.math
 
-pub fn main() -> Int do
+pub fn main() -> Int {
   math.add(1, 2)
-end
+}
 "#,
         )
         .expect("failed to write entry module");
@@ -2966,9 +3060,9 @@ end
             r#"
 module lib.math
 
-pub fn add(a: Int, b: Int) -> Int do
+pub fn add(a: Int, b: Int) -> Int {
   a + b
-end
+}
 "#,
         )
         .expect("failed to write shared module");
@@ -2979,9 +3073,9 @@ end
 module app
 import lib.math
 
-pub fn main() -> Int do
+pub fn main() -> Int {
   math.add(1, 2)
-end
+}
 "#,
         )
         .expect("failed to write entry");
@@ -3022,9 +3116,9 @@ end
             r#"
 module lib.math
 
-pub fn add(a: Int, b: Int) -> Int do
+pub fn add(a: Int, b: Int) -> Int {
   a + b
-end
+}
 "#,
         )
         .expect("failed to write shared module");
@@ -3035,9 +3129,9 @@ end
 module app
 import lib.math
 
-pub fn main() -> Int do
+pub fn main() -> Int {
   math.add(1, 2)
-end
+}
 "#,
         )
         .expect("failed to write entry");
@@ -3071,11 +3165,11 @@ end
             r#"
 module app
 
-pub fn tick() -> Unit do
+pub fn tick() -> Unit {
   let x = 1
   x
   ()
-end
+}
 "#,
         )
         .expect("failed to write entry");
@@ -3106,18 +3200,18 @@ end
             r#"
 module app.game
 
-pub fn init() -> Int do
+pub fn init() -> Int {
   0
-end
+}
 
-pub fn update(state: Int) -> Int do
+pub fn update(state: Int) -> Int {
   state + 1
-end
+}
 
-pub fn render(state: Int) -> Unit do
+pub fn render(state: Int) -> Unit {
   state
   ()
-end
+}
 "#,
         )
         .expect("failed to write entry");
@@ -3164,18 +3258,18 @@ end
             r#"
 module app.game
 
-pub fn init() -> Int do
+pub fn init() -> Int {
   0
-end
+}
 
-pub fn update(state: Int) -> Int do
+pub fn update(state: Int) -> Int {
   state + 1
-end
+}
 
-pub fn render(state: Int) -> Unit do
+pub fn render(state: Int) -> Unit {
   state
   ()
-end
+}
 "#,
         )
         .expect("failed to write entry");
@@ -3247,18 +3341,18 @@ type State {
   frames: Int
 }
 
-pub fn init() -> State do
+pub fn init() -> State {
   State { frames = 0 }
-end
+}
 
-pub fn update(state: State) -> State do
+pub fn update(state: State) -> State {
   state with { frames = state.frames + 1 }
-end
+}
 
-pub fn render(state: State) -> Unit do
+pub fn render(state: State) -> Unit {
   graphics.clear()
   ()
-end
+}
 "#,
         )
         .expect("write entry");
@@ -3323,9 +3417,9 @@ end
             r#"
 module app.game
 
-pub fn tick() -> Unit do
+pub fn tick() -> Unit {
   ()
-end
+}
 "#,
         )
         .expect("failed to write entry");
@@ -3355,18 +3449,18 @@ end
             r#"
 module app.game
 
-pub fn init() -> Int do
+pub fn init() -> Int {
   0
-end
+}
 
-pub fn update() -> Int do
+pub fn update() -> Int {
   1
-end
+}
 
-pub fn render(state: Int) -> Unit do
+pub fn render(state: Int) -> Unit {
   state
   ()
-end
+}
 "#,
         )
         .expect("failed to write entry");
@@ -3398,18 +3492,18 @@ end
             r#"
 module app.game
 
-pub fn init() -> Int do
+pub fn init() -> Int {
   0
-end
+}
 
-pub fn update(state: Int) -> Int do
+pub fn update(state: Int) -> Int {
   state + 1
-end
+}
 
-pub fn render(state: Float) -> Unit do
+pub fn render(state: Float) -> Unit {
   state
   ()
-end
+}
 "#,
         )
         .expect("failed to write entry");
@@ -3440,9 +3534,9 @@ module app
 
 import playdate.input
 
-pub fn poll() -> Bool do
+pub fn poll() -> Bool {
   input.a_pressed()
-end
+}
 "#,
         )
         .expect("failed to write entry");
@@ -3491,12 +3585,12 @@ module app
 
 import playdate.graphics
 
-pub fn render() -> Unit do
+pub fn render() -> Unit {
   graphics.drawLine(10.0, 20.0, 30.0, 40.0)
   graphics.drawRect(12.5, 22.0, 40.0, 12.0)
   graphics.fillRect(14.0, 24.0, 36.0, 8.0)
   ()
-end
+}
 "#,
         )
         .expect("failed to write entry");
@@ -3550,9 +3644,9 @@ module app
 
 import playdate.audio
 
-pub fn cue() -> Unit do
+pub fn cue() -> Unit {
   audio.bounce_blip()
-end
+}
 "#,
         )
         .expect("failed to write entry");
@@ -3601,9 +3695,9 @@ module app
 
 import playdate.system
 
-pub fn right_half() -> Bool do
+pub fn right_half() -> Bool {
   system.crank_is_right_half()
-end
+}
 "#,
         )
         .expect("failed to write entry");
@@ -3652,9 +3746,9 @@ module app
 
 import playdate.timer
 
-pub fn tick() -> Unit do
+pub fn tick() -> Unit {
   timer.updateTimers()
-end
+}
 "#,
         )
         .expect("failed to write entry");
@@ -3700,9 +3794,9 @@ module app
 
 import math
 
-pub fn wave(theta: Float) -> Float do
+pub fn wave(theta: Float) -> Float {
   math.sin(theta)
-end
+}
 "#,
         )
         .expect("failed to write entry");
@@ -3748,9 +3842,9 @@ module game
 
 import core.{State}
 
-pub fn init() -> State do
+pub fn init() -> State {
   State { frame = core.next_frame() }
-end
+}
 "#,
         )
         .expect("failed to write entry");
@@ -3761,9 +3855,9 @@ module core
 
 pub type State { frame: Int }
 
-pub fn next_frame() -> Int do
+pub fn next_frame() -> Int {
   1
-end
+}
 "#,
         )
         .expect("failed to write core");
@@ -3788,12 +3882,12 @@ end
         let source = r#"
 type MaybeInt = | Missing | Present(Int)
 
-fn pick(m: MaybeInt) -> Int do
-match m do
+fn pick(m: MaybeInt) -> Int {
+match m {
 case Missing => 0
 case Present(v) => v
-end
-end
+}
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -3818,17 +3912,17 @@ type Maybe[T] =
 
 type Status = | Idle | Busy
 
-fn choose(flag: Bool) -> Maybe[Int] do
-  if flag then
+fn choose(flag: Bool) -> Maybe[Int] {
+  if flag {
     Present(1)
-  else
+  } else {
     Missing
-  end
-end
+  }
+}
 
-fn status() -> Status do
+fn status() -> Status {
   Idle
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -3856,18 +3950,18 @@ type Point {
 fn add(
   a: Int,
   b: Int,
-) -> Int do
+) -> Int {
   a + b
-end
+}
 
-fn from_opt(v: Maybe[Int]) -> Int do
-  match v do
+fn from_opt(v: Maybe[Int]) -> Int {
+  match v {
     case Present(x,) => x,
     case Missing => 0,
-  end
-end
+  }
+}
 
-fn main(x: Int) -> Int do
+fn main(x: Int) -> Int {
   let base = add(
     1,
     2,
@@ -3876,11 +3970,11 @@ fn main(x: Int) -> Int do
     x,
     y = base,
   }
-  match Present(p.x) do
+  match Present(p.x) {
     case Present(v,) => v,
     case Missing => 0,
-  end
-end
+  }
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -3896,20 +3990,20 @@ end
     #[test]
     fn prelude_option_is_available_without_local_declaration() {
         let source = r#"
-fn choose(flag: Bool) -> Option[Int] do
-  if flag then
+fn choose(flag: Bool) -> Option[Int] {
+  if flag {
     Some(1)
-  else
+  } else {
     None
-  end
-end
+  }
+}
 
-fn main(flag: Bool) -> Int do
-  match choose(flag) do
+fn main(flag: Bool) -> Int {
+  match choose(flag) {
     case Some(v) => v
     case None => 0
-  end
-end
+  }
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -3931,9 +4025,9 @@ end
         let source = r#"
 type Option[T] = | Empty
 type Maybe = | Some(Int)
-fn map(x: Int) -> Int do
+fn map(x: Int) -> Int {
   x
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -3955,11 +4049,11 @@ end
     #[test]
     fn list_literals_length_and_map_compile_to_lua_arrays() {
         let source = r#"
-fn main() -> Int do
+fn main() -> Int {
   let xs: List[Int] = [1, 2, 3]
   let ys = map(xs, fn (x: Int) -> Int => x + 1)
   length(ys)
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -3980,10 +4074,10 @@ end
     #[test]
     fn empty_list_literals_require_context() {
         let ok_source = r#"
-fn main() -> Int do
+fn main() -> Int {
   let xs: List[Int] = []
   length(xs)
-end
+}
 "#;
         let (tokens, lex_diags) = lexer::lex(0, ok_source);
         assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
@@ -3995,10 +4089,10 @@ end
         assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
 
         let err_source = r#"
-fn main() -> Unit do
+fn main() -> Unit {
   let xs = []
   ()
-end
+}
 "#;
         let (tokens, lex_diags) = lexer::lex(0, err_source);
         assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
@@ -4017,10 +4111,10 @@ end
     #[test]
     fn list_literal_rejects_incompatible_elements() {
         let source = r#"
-fn main() -> Unit do
+fn main() -> Unit {
   let xs = [1, true]
   ()
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4040,12 +4134,12 @@ end
     #[test]
     fn list_helpers_report_arity_and_argument_errors() {
         let source = r#"
-fn main() -> Unit do
+fn main() -> Unit {
   let xs: List[Int] = [1]
   let a = length(xs, xs)
   let b = map(1, fn (x: Int) -> Int => x)
   ()
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4071,15 +4165,15 @@ end
         let source = r#"
 type Pair { a: Int, b: Int }
 
-fn make(a: Int, b: Int) -> Pair do
+fn make(a: Int, b: Int) -> Pair {
   Pair { a, b }
-end
+}
 
-fn swap(p: Pair) -> Pair do
+fn swap(p: Pair) -> Pair {
   let a = p.b
   let b = p.a
   Pair { a, b }
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4103,9 +4197,9 @@ end
 newtype UserId = Int
 newtype Box[T] = T
 
-fn make() -> UserId do
+fn make() -> UserId {
   UserId(1)
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4123,9 +4217,9 @@ end
         let source = r#"
 newtype UserId Int
 
-fn main() -> Int do
+fn main() -> Int {
   0
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4146,9 +4240,9 @@ end
 type Maybe[T] =
   |
 
-fn main() -> Int do
+fn main() -> Int {
   0
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4168,13 +4262,13 @@ end
     #[test]
     fn functions_are_predeclared_for_forward_references() {
         let source = r#"
-fn main() -> Int do
+fn main() -> Int {
 helper()
-end
+}
 
-fn helper() -> Int do
+fn helper() -> Int {
 1
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4198,11 +4292,11 @@ end
         let source = r#"
 type Shape = | Circle { radius: Int }
 
-fn area(s: Shape) -> Int do
-match s do
+fn area(s: Shape) -> Int {
+match s {
 case Circle { radius } => radius
-end
-end
+}
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4227,9 +4321,9 @@ import baz.bar
 import foo.one.{zap}
 import foo.two.{zap}
 
-fn main() -> Int do
+fn main() -> Int {
 0
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4255,9 +4349,9 @@ end
     #[test]
     fn resolve_rejects_nullable_and_nil_types_outside_extern_context() {
         let source = r#"
-fn main(x: Int not, y: Nil) -> Int do
+fn main(x: Int not, y: Nil) -> Int {
 1
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4281,10 +4375,10 @@ end
         let source = r#"
 type MaybeInt = | Missing | Present(Int)
 
-fn main() -> Int do
+fn main() -> Int {
 let x = Missing(1)
 0
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4314,11 +4408,11 @@ end
         let source = r#"
 type MoveMsg = | Move(Int, Int)
 
-fn main(msg: MoveMsg) -> Int do
-  match msg do
+fn main(msg: MoveMsg) -> Int {
+  match msg {
     case Move { x, y } => x
-  end
-end
+  }
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4353,11 +4447,11 @@ end
         let source = r#"
 type Shape = | Rect { w: Int, h: Int }
 
-fn main(s: Shape) -> Int do
-  match s do
+fn main(s: Shape) -> Int {
+  match s {
     case Rect(w, h) => w
-  end
-end
+  }
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4394,11 +4488,11 @@ end
         let source = r#"
 type MoveMsg = | Move(Int, Int)
 
-fn main(msg: MoveMsg) -> Int do
-  match msg do
+fn main(msg: MoveMsg) -> Int {
+  match msg {
     case Move(x) => x
-  end
-end
+  }
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4424,11 +4518,11 @@ end
         let source = r#"
 type Shape = | Rect { width: Int, height: Int }
 
-fn main(s: Shape) -> Int do
-  match s do
+fn main(s: Shape) -> Int {
+  match s {
     case Rect { widht } => widht
-  end
-end
+  }
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4454,10 +4548,10 @@ end
         let source = r#"
 type Point { x: Int, y: Int }
 
-fn main() -> Int do
+fn main() -> Int {
 let p = Point { x = 1, y = 2 } with { x = true, z = 3 }
 p.x
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4499,10 +4593,10 @@ end
         let source = r#"
 type Point { x: Int, y: Int }
 
-fn main() -> Int do
+fn main() -> Int {
   let p = Point { xx = 1, y = 2 }
   p.x
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4527,10 +4621,10 @@ end
         let source = r#"
 type Point { x: Int, y: Int }
 
-fn main() -> Int do
+fn main() -> Int {
   let p = Point { x = 1, x = 2, y = 3 }
   p.y
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4555,10 +4649,10 @@ end
         let source = r#"
 type Point { x: Int, y: Int }
 
-fn main() -> Int do
+fn main() -> Int {
   let p = Point { x = 1 }
   p.x
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4583,9 +4677,9 @@ end
         let source = r#"
 type Point { x: Int, y: Int }
 
-fn bump(p: Point) -> Point do
+fn bump(p: Point) -> Point {
 p with { x = p.x + 1 }
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4610,26 +4704,26 @@ end
         let source = r#"
 type Box[T] { value: T }
 
-fn opt() -> Option[Int] do
+fn opt() -> Option[Int] {
 Some(1)
-end
+}
 
-fn boxify() -> Box[Int] do
+fn boxify() -> Box[Int] {
 Box { value = 1 }
-end
+}
 
-fn unbox(b: Box[Int]) -> Int do
+fn unbox(b: Box[Int]) -> Int {
 b.value
-end
+}
 
-fn main() -> Int do
+fn main() -> Int {
 let b = boxify()
 let b2 = b with { value = 2 }
-match opt() do
+match opt() {
 case Some(v) => unbox(b2) + v
 case None => 0
-end
-end
+}
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4649,17 +4743,17 @@ end
     #[test]
     fn nullary_generic_constructor_uses_expected_context() {
         let source = r#"
-fn takes(v: Option[Int]) -> Int do
-  match v do
+fn takes(v: Option[Int]) -> Int {
+  match v {
     case Some(x) => x
     case None => 0
-  end
-end
+  }
+}
 
-fn main() -> Int do
+fn main() -> Int {
   let a: Option[Int] = None
   takes(None) + takes(a)
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4677,16 +4771,16 @@ end
         let source = r#"
 type Wrapper { value: Option[Int] }
 
-fn make() -> Wrapper do
+fn make() -> Wrapper {
   Wrapper { value = None }
-end
+}
 
-fn main() -> Int do
-  match make().value do
+fn main() -> Int {
+  match make().value {
     case Some(v) => v
     case None => 0
-  end
-end
+  }
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4704,16 +4798,16 @@ end
         let source = r#"
 type Wrapped = | Wrapped(Option[Int])
 
-fn make() -> Wrapped do
+fn make() -> Wrapped {
   Wrapped(None)
-end
+}
 
-fn main() -> Int do
-  match make() do
+fn main() -> Int {
+  match make() {
     case Wrapped(Some(v)) => v
     case Wrapped(None) => 0
-  end
-end
+  }
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4731,9 +4825,9 @@ end
         let source = r#"
 type State { value: Option[Int] }
 
-fn clear(s: State) -> State do
+fn clear(s: State) -> State {
   s with { value = None }
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4749,10 +4843,10 @@ end
     #[test]
     fn unconstrained_nullary_generic_constructor_reports_error() {
         let source = r#"
-fn main() -> Unit do
+fn main() -> Unit {
   let x = None
   ()
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4775,13 +4869,13 @@ end
         let source = r#"
 type Distance = Int
 
-fn inc(d: Distance) -> Distance do
+fn inc(d: Distance) -> Distance {
   d + 1
-end
+}
 
-fn main() -> Distance do
+fn main() -> Distance {
   inc(41)
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4806,35 +4900,35 @@ type Flag = Bool
 type Id[T] = T
 type IntOpt = Option[Int]
 
-fn choose(flag: Flag) -> Id[Int] do
-  if flag then
+fn choose(flag: Flag) -> Id[Int] {
+  if flag {
     1
-  else
+  } else {
     2
-  end
-end
+  }
+}
 
-fn pick(flag: Flag) -> IntOpt do
-  if flag then
+fn pick(flag: Flag) -> IntOpt {
+  if flag {
     Some(choose(flag))
-  else
+  } else {
     None
-  end
-end
+  }
+}
 
-fn len(d: Distance) -> Distance do
+fn len(d: Distance) -> Distance {
   d + 1
-end
+}
 
-fn main(flag: Flag) -> Distance do
+fn main(flag: Flag) -> Distance {
   let base: Distance = 41
   let out: Id[Int] = choose(flag)
   let chosen: IntOpt = pick(flag)
-  match chosen do
+  match chosen {
     case Some(v) => len(base + v)
     case None => len(base + out)
-  end
-end
+  }
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4852,23 +4946,23 @@ end
         let source = r#"
 newtype UserId = Int
 
-fn make() -> UserId do
+fn make() -> UserId {
   UserId(42)
-end
+}
 
-fn same(a: UserId, b: UserId) -> Bool do
+fn same(a: UserId, b: UserId) -> Bool {
   a == b
-end
+}
 
-fn main() -> Int do
+fn main() -> Int {
   let a = make()
   let b = UserId(7)
-  if same(a, b) then
+  if same(a, b) {
     1
-  else
+  } else {
     0
-  end
-end
+  }
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4891,13 +4985,13 @@ end
         let source = r#"
 newtype UserId = Int
 
-fn takes_user(id: UserId) -> Int do
+fn takes_user(id: UserId) -> Int {
   0
-end
+}
 
-fn main() -> Int do
+fn main() -> Int {
   takes_user(1)
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4918,16 +5012,16 @@ end
         let ok_source = r#"
 newtype Box[T] = T
 
-fn make() -> Box[Int] do
+fn make() -> Box[Int] {
   Box(1)
-end
+}
 
-fn main() -> Unit do
+fn main() -> Unit {
   let a: Box[Int] = Box(2)
   let b = make()
   let _ = a == b
   ()
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, ok_source);
@@ -4942,10 +5036,10 @@ end
         let bad_source = r#"
 newtype Phantom[T] = Int
 
-fn main() -> Unit do
+fn main() -> Unit {
   let p = Phantom(1)
   ()
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, bad_source);
@@ -4967,10 +5061,10 @@ end
         let source = r#"
 newtype UserId = Int
 
-fn main() -> Unit do
+fn main() -> Unit {
   let x = UserId { value = 1 }
   ()
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4995,10 +5089,10 @@ end
         let source = r#"
 type Phantom[T] { value: Int }
 
-fn main() -> Unit do
+fn main() -> Unit {
   let p = Phantom { value = 1 }
   ()
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -5020,13 +5114,13 @@ end
         let source = r#"
 type Id[T] = T
 
-fn takes_id(x: Id[Int]) -> Int do
+fn takes_id(x: Id[Int]) -> Int {
   x
-end
+}
 
-fn main() -> Int do
+fn main() -> Int {
   takes_id(true)
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -5049,13 +5143,13 @@ end
         let source = r#"
 import foo.bar
 
-extern module foo.bar do
+extern module foo.bar {
   extern fn baz(x: Int) -> Int
-end
+}
 
-fn main() -> Int do
+fn main() -> Int {
   bar(1)
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -5076,11 +5170,11 @@ end
     #[test]
     fn reports_non_exhaustive_match_for_generic_sum_types() {
         let source = r#"
-fn unwrap(v: Option[Int]) -> Int do
-  match v do
+fn unwrap(v: Option[Int]) -> Int {
+  match v {
     case Some(x) => x
-  end
-end
+  }
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -5102,10 +5196,10 @@ end
         let source = r#"
 type MaybeInt = | Missing | Present(Int)
 
-fn main() -> Int do
+fn main() -> Int {
   let x = Missing(1)
   0
-end
+}
 "#;
         assert_diagnostics_golden(
             "constructor_payload_note",
@@ -5119,11 +5213,11 @@ end
         let source = r#"
 type MoveMsg = | Move(Int, Int)
 
-fn main(msg: MoveMsg) -> Int do
-  match msg do
+fn main(msg: MoveMsg) -> Int {
+  match msg {
     case Move { x, y } => x
-  end
-end
+  }
+}
 "#;
         assert_diagnostics_golden(
             "constructor_pattern_shape_mismatch",
@@ -5137,11 +5231,11 @@ end
         let source = r#"
 type MoveMsg = | Move(Int, Int)
 
-fn main(msg: MoveMsg) -> Int do
-  match msg do
+fn main(msg: MoveMsg) -> Int {
+  match msg {
     case Move(x) => x
-  end
-end
+  }
+}
 "#;
         assert_diagnostics_golden(
             "constructor_pattern_arity_mismatch",
@@ -5155,11 +5249,11 @@ end
         let source = r#"
 type Shape = | Rect { width: Int, height: Int }
 
-fn main(s: Shape) -> Int do
-  match s do
+fn main(s: Shape) -> Int {
+  match s {
     case Rect { widht } => widht
-  end
-end
+  }
+}
 "#;
         assert_diagnostics_golden(
             "constructor_pattern_field_typo",
@@ -5173,13 +5267,13 @@ end
         let source = r#"
 import foo.bar
 
-extern module foo.bar do
+extern module foo.bar {
   extern fn baz() -> Int
-end
+}
 
-fn main() -> Int do
+fn main() -> Int {
   bar.qux()
-end
+}
 "#;
         assert_diagnostics_golden(
             "imported_module_member_missing",
@@ -5191,9 +5285,9 @@ end
     #[test]
     fn diagnostics_golden_unresolved_name() {
         let source = r#"
-fn main() -> Int do
+fn main() -> Int {
   missing_name
-end
+}
 "#;
         assert_diagnostics_golden("unresolved_name", "golden_unresolved_name.luna", source);
     }
@@ -5203,11 +5297,11 @@ end
         let source = r#"
 type MaybeInt = | Missing | Present(Int)
 
-fn unwrap(m: MaybeInt) -> Int do
-  match m do
+fn unwrap(m: MaybeInt) -> Int {
+  match m {
     case Present(v) => v
-  end
-end
+  }
+}
 "#;
         assert_diagnostics_golden(
             "non_exhaustive_match",
@@ -5219,11 +5313,11 @@ end
     #[test]
     fn diagnostics_golden_bool_non_exhaustive_match() {
         let source = r#"
-fn main(flag: Bool) -> Int do
-  match flag do
+fn main(flag: Bool) -> Int {
+  match flag {
     case true => 1
-  end
-end
+  }
+}
 "#;
         assert_diagnostics_golden(
             "bool_non_exhaustive_match",
@@ -5237,13 +5331,13 @@ end
         let source = r#"
 type MaybeInt = | Missing | Present(Int)
 
-fn main(m: MaybeInt) -> Int do
-  match m do
+fn main(m: MaybeInt) -> Int {
+  match m {
     case Present(v) => v
     case Present(_) => 0
     case Missing => 0
-  end
-end
+  }
+}
 "#;
         assert_diagnostics_golden(
             "duplicate_constructor_match_arm",
@@ -5255,12 +5349,12 @@ end
     #[test]
     fn diagnostics_golden_unreachable_match_arm() {
         let source = r#"
-fn main(value: Int) -> Int do
-  match value do
+fn main(value: Int) -> Int {
+  match value {
     case _ => 0
     case 1 => 1
-  end
-end
+  }
+}
 "#;
         assert_diagnostics_golden(
             "unreachable_match_arm",
@@ -5275,9 +5369,9 @@ end
 import foo.bar
 import baz.bar
 
-fn main() -> Int do
+fn main() -> Int {
   0
-end
+}
 "#;
         assert_diagnostics_golden(
             "duplicate_import_alias",
@@ -5291,9 +5385,9 @@ end
         let source = r#"
 import foo.bar.{qux}
 
-fn main() -> Int do
+fn main() -> Int {
   qux(1)
-end
+}
 "#;
         assert_diagnostics_golden(
             "imported_item_missing_declaration",
@@ -5307,9 +5401,9 @@ end
         let source = r#"
 extern fn wave(theta: Float) -> Float
 
-fn main() -> Float do
+fn main() -> Float {
   wave(1)
-end
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -5327,9 +5421,9 @@ end
         let source = r#"
 type Point { x: Int, y: Int }
 
-fn bump(p: Point) -> Point do
+fn bump(p: Point) -> Point {
   p with { x = p.x + 1 }
-end
+}
 "#;
         assert_lua_golden("record_update", "golden_record_update.luna", source);
     }
@@ -5339,12 +5433,12 @@ end
         let source = r#"
 type MaybeInt = | Missing | Present(Int)
 
-fn pick(m: MaybeInt) -> Int do
-  match m do
+fn pick(m: MaybeInt) -> Int {
+  match m {
     case Present(v) => v
     case Missing => 0
-  end
-end
+  }
+}
 "#;
         assert_lua_golden("sum_match", "golden_sum_match.luna", source);
     }
@@ -5352,9 +5446,9 @@ end
     #[test]
     fn lua_golden_string_interpolation() {
         let source = r#"
-fn banner(name: String, count: Int) -> String do
+fn banner(name: String, count: Int) -> String {
   "Hello ${name}! #${count + 1} \${literal}"
-end
+}
 "#;
         assert_lua_golden(
             "string_interpolation",

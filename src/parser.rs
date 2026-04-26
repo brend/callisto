@@ -5,6 +5,9 @@ use crate::{
     token::{Token, TokenKind},
 };
 
+const DIAG_PARSE_OLD_BLOCK_DELIMITER: &str = "CAL-PAR-001";
+const DIAG_PARSE_ELSEIF_REMOVED: &str = "CAL-PAR-002";
+
 pub fn parse(tokens: Vec<Token>) -> (Module, Diagnostics) {
     let mut parser = Parser::new(tokens);
     let module = parser.parse_module();
@@ -304,10 +307,15 @@ impl Parser {
     fn parse_extern_module_decl(&mut self, vis: Visibility) -> ExternModuleDecl {
         let start = self.expect(TokenKind::KwModule, "expected 'module'").span;
         let path = self.parse_path();
-        self.expect(TokenKind::KwDo, "expected 'do' in extern module");
+        let braced = self.expect_block_start("use `{ ... }` after an extern module path");
         self.skip_newlines();
         let mut funcs = Vec::new();
-        while !self.at(TokenKind::KwEnd) && !self.at(TokenKind::Eof) {
+        let terminator = if braced {
+            TokenKind::RBrace
+        } else {
+            TokenKind::KwEnd
+        };
+        while !self.at(terminator) && !self.at(TokenKind::Eof) {
             let f_vis = self.parse_visibility();
             self.expect(
                 TokenKind::KwExtern,
@@ -316,7 +324,7 @@ impl Parser {
             funcs.push(self.parse_extern_func_decl(f_vis));
             self.skip_newlines();
         }
-        self.expect(TokenKind::KwEnd, "expected 'end' after extern module");
+        self.expect_block_end(braced, "expected '}' after extern module");
         let end = self.prev_span();
         ExternModuleDecl {
             span: start.merge(end),
@@ -329,15 +337,20 @@ impl Parser {
     fn parse_impl_decl(&mut self) -> ImplDecl {
         let start = self.expect(TokenKind::KwImpl, "expected 'impl'").span;
         let target = self.expect_ident("expected impl target type").lexeme;
-        self.expect(TokenKind::KwDo, "expected 'do' in impl");
+        let braced = self.expect_block_start("use `{ ... }` after an impl target");
         self.skip_newlines();
         let mut methods = Vec::new();
-        while !self.at(TokenKind::KwEnd) && !self.at(TokenKind::Eof) {
+        let terminator = if braced {
+            TokenKind::RBrace
+        } else {
+            TokenKind::KwEnd
+        };
+        while !self.at(terminator) && !self.at(TokenKind::Eof) {
             let vis = self.parse_visibility();
             methods.push(self.parse_func_decl(vis));
             self.skip_newlines();
         }
-        self.expect(TokenKind::KwEnd, "expected 'end' after impl");
+        self.expect_block_end(braced, "expected '}' after impl");
         let end = self.prev_span();
         ImplDecl {
             span: start.merge(end),
@@ -356,9 +369,14 @@ impl Parser {
         } else {
             self.mk_type_expr(self.prev_span(), TypeExprKind::Unit)
         };
-        self.expect(TokenKind::KwDo, "expected 'do' before function body");
-        let body = self.parse_block(&[TokenKind::KwEnd]);
-        self.expect(TokenKind::KwEnd, "expected 'end' after function body");
+        let braced = self.expect_block_start("use `{ ... }` after a function signature");
+        let terminator = if braced {
+            TokenKind::RBrace
+        } else {
+            TokenKind::KwEnd
+        };
+        let body = self.parse_block(&[terminator]);
+        self.expect_block_end(braced, "expected '}' after function body");
         let end = self.prev_span();
         FuncDecl {
             span: start.merge(end),
@@ -469,6 +487,7 @@ impl Parser {
     fn parse_stmt(&mut self) -> Option<Stmt> {
         self.skip_newlines();
         if self.at_any(&[
+            TokenKind::RBrace,
             TokenKind::KwEnd,
             TokenKind::KwElse,
             TokenKind::KwElseIf,
@@ -556,6 +575,8 @@ impl Parser {
         let start = self.expect(TokenKind::KwReturn, "expected 'return'").span;
         let value = if self.at_any(&[
             TokenKind::Newline,
+            TokenKind::RBrace,
+            TokenKind::Comma,
             TokenKind::KwEnd,
             TokenKind::KwElse,
             TokenKind::KwElseIf,
@@ -576,9 +597,14 @@ impl Parser {
     fn parse_while_stmt(&mut self) -> WhileStmt {
         let start = self.expect(TokenKind::KwWhile, "expected 'while'").span;
         let cond = self.parse_expr();
-        self.expect(TokenKind::KwDo, "expected 'do' in while statement");
-        let body = self.parse_block(&[TokenKind::KwEnd]);
-        self.expect(TokenKind::KwEnd, "expected 'end' after while body");
+        let braced = self.expect_block_start("use `{ ... }` after a while condition");
+        let terminator = if braced {
+            TokenKind::RBrace
+        } else {
+            TokenKind::KwEnd
+        };
+        let body = self.parse_block(&[terminator]);
+        self.expect_block_end(braced, "expected '}' after while body");
         let end = self.prev_span();
         WhileStmt {
             span: start.merge(end),
@@ -594,9 +620,14 @@ impl Parser {
         let start_expr = self.parse_expr();
         self.expect(TokenKind::DotDot, "expected '..' in for range");
         let end_expr = self.parse_expr();
-        self.expect(TokenKind::KwDo, "expected 'do' in for loop");
-        let body = self.parse_block(&[TokenKind::KwEnd]);
-        self.expect(TokenKind::KwEnd, "expected 'end' after for loop");
+        let braced = self.expect_block_start("use `{ ... }` after a for range");
+        let terminator = if braced {
+            TokenKind::RBrace
+        } else {
+            TokenKind::KwEnd
+        };
+        let body = self.parse_block(&[terminator]);
+        self.expect_block_end(braced, "expected '}' after for loop");
         let end = self.prev_span();
         ForStmt {
             span: start.merge(end),
@@ -970,7 +1001,10 @@ impl Parser {
                 continue;
             }
 
-            if self.eat(TokenKind::LBrace).is_some() {
+            if self.at(TokenKind::LBrace)
+                && matches!(&expr.kind, ExprKind::Var(name) if is_constructor_name(name))
+            {
+                self.bump();
                 let fields = self.parse_record_field_inits();
                 self.expect(TokenKind::RBrace, "expected '}' after fields");
                 let span = expr.span.merge(self.prev_span());
@@ -1023,23 +1057,52 @@ impl Parser {
     fn parse_if_expr(&mut self) -> Expr {
         let start = self.expect(TokenKind::KwIf, "expected 'if'").span;
         let cond = self.parse_expr();
-        self.expect(TokenKind::KwThen, "expected 'then' in if expression");
-        let first_block =
-            self.parse_block(&[TokenKind::KwElseIf, TokenKind::KwElse, TokenKind::KwEnd]);
+        let first_braced = self.expect_block_start("use `{ ... }` after an if condition");
+        let first_terminators = if first_braced {
+            vec![TokenKind::RBrace]
+        } else {
+            vec![TokenKind::KwElseIf, TokenKind::KwElse, TokenKind::KwEnd]
+        };
+        let first_block = self.parse_block(&first_terminators);
+        if first_braced {
+            self.expect(TokenKind::RBrace, "expected '}' after if branch");
+        }
 
         let mut branches = vec![(cond, first_block)];
-        while self.at(TokenKind::KwElseIf) {
+        while self.at(TokenKind::KwElse) && self.peek_kind(1) == Some(TokenKind::KwIf) {
+            self.bump();
             self.bump();
             let cond = self.parse_expr();
-            self.expect(TokenKind::KwThen, "expected 'then' in elseif expression");
-            let block =
-                self.parse_block(&[TokenKind::KwElseIf, TokenKind::KwElse, TokenKind::KwEnd]);
+            self.expect(TokenKind::LBrace, "expected '{' after else if condition");
+            let block = self.parse_block(&[TokenKind::RBrace]);
+            self.expect(TokenKind::RBrace, "expected '}' after else if branch");
+            branches.push((cond, block));
+        }
+        while self.at(TokenKind::KwElseIf) {
+            self.error_code_here(
+                DIAG_PARSE_ELSEIF_REMOVED,
+                "use `else if cond { ... }` instead of `elseif cond then ... end`",
+            );
+            self.bump();
+            let cond = self.parse_expr();
+            let braced = self.expect_block_start("use `else if cond { ... }`");
+            let block = self.parse_block(&[if braced {
+                TokenKind::RBrace
+            } else {
+                TokenKind::KwEnd
+            }]);
+            self.expect_block_end(braced, "expected '}' after else if branch");
             branches.push((cond, block));
         }
 
         self.expect(TokenKind::KwElse, "expected 'else' in if expression");
-        let else_block = self.parse_block(&[TokenKind::KwEnd]);
-        self.expect(TokenKind::KwEnd, "expected 'end' after if expression");
+        let else_braced = self.expect_block_start("use `{ ... }` after else");
+        let else_block = self.parse_block(&[if else_braced {
+            TokenKind::RBrace
+        } else {
+            TokenKind::KwEnd
+        }]);
+        self.expect_block_end(else_braced, "expected '}' after else branch");
 
         let span = start.merge(self.prev_span());
         self.mk_expr(
@@ -1054,9 +1117,7 @@ impl Parser {
     fn parse_match_expr(&mut self) -> Expr {
         let start = self.expect(TokenKind::KwMatch, "expected 'match'").span;
         let scrutinee = self.parse_expr();
-        if self.at(TokenKind::KwDo) {
-            self.bump();
-        }
+        let braced = self.expect_block_start("use `{ ... }` after a match scrutinee");
         self.skip_newlines();
 
         let mut arms = Vec::new();
@@ -1064,7 +1125,12 @@ impl Parser {
             let case_span = self.bump().span;
             let pattern = self.parse_pattern();
             self.expect(TokenKind::FatArrow, "expected '=>' in match arm");
-            let body = self.parse_block(&[TokenKind::KwCase, TokenKind::KwEnd, TokenKind::Comma]);
+            let body_terminator = if braced {
+                TokenKind::RBrace
+            } else {
+                TokenKind::KwEnd
+            };
+            let body = self.parse_block(&[TokenKind::KwCase, body_terminator, TokenKind::Comma]);
             let arm_span = case_span.merge(body.span);
             arms.push(MatchArm {
                 span: arm_span,
@@ -1075,7 +1141,7 @@ impl Parser {
             self.skip_newlines();
         }
 
-        self.expect(TokenKind::KwEnd, "expected 'end' after match expression");
+        self.expect_block_end(braced, "expected '}' after match expression");
         let span = start.merge(self.prev_span());
         self.mk_expr(
             span,
@@ -1408,6 +1474,44 @@ impl Parser {
         }
     }
 
+    fn expect_block_start(&mut self, replacement: &str) -> bool {
+        if self.eat(TokenKind::LBrace).is_some() {
+            return true;
+        }
+        if self.at(TokenKind::KwDo) || self.at(TokenKind::KwThen) {
+            let found = self.current().lexeme.clone();
+            self.error_code_here(
+                DIAG_PARSE_OLD_BLOCK_DELIMITER,
+                format!("old block delimiter `{found}` is no longer supported; {replacement}"),
+            );
+            self.bump();
+            return false;
+        }
+        if self.at(TokenKind::KwEnd) {
+            self.error_code_here(
+                DIAG_PARSE_OLD_BLOCK_DELIMITER,
+                "old block delimiter `end` is no longer supported; use `}`",
+            );
+        } else {
+            self.error_here(format!("expected '{{'; {replacement}"));
+        }
+        false
+    }
+
+    fn expect_block_end(&mut self, braced: bool, msg: &str) {
+        if braced {
+            self.expect(TokenKind::RBrace, msg);
+        } else if self.at(TokenKind::KwEnd) {
+            self.error_code_here(
+                DIAG_PARSE_OLD_BLOCK_DELIMITER,
+                "old block delimiter `end` is no longer supported; use `}`",
+            );
+            self.bump();
+        } else {
+            self.expect(TokenKind::RBrace, msg);
+        }
+    }
+
     fn expect_ident(&mut self, msg: &str) -> Token {
         if self.at(TokenKind::Ident) {
             self.bump()
@@ -1456,9 +1560,12 @@ impl Parser {
     fn recover_to_stmt_boundary(&mut self) {
         while !self.at(TokenKind::Eof)
             && !self.at(TokenKind::Newline)
+            && !self.at(TokenKind::RBrace)
+            && !self.at(TokenKind::Comma)
             && !self.at(TokenKind::KwEnd)
             && !self.at(TokenKind::KwElse)
             && !self.at(TokenKind::KwElseIf)
+            && !self.at(TokenKind::KwIf)
             && !self.at(TokenKind::KwCase)
         {
             self.bump();
@@ -1467,6 +1574,11 @@ impl Parser {
 
     fn error_here(&mut self, message: impl Into<String>) {
         self.diagnostics.error(self.current().span, message.into());
+    }
+
+    fn error_code_here(&mut self, code: &str, message: impl Into<String>) {
+        self.diagnostics
+            .error_code(self.current().span, code, message.into());
     }
 
     fn mk_expr(&mut self, span: Span, kind: ExprKind) -> Expr {

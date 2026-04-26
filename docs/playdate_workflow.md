@@ -100,17 +100,17 @@ Auto shim customization flags:
 Auto shim writes `Source/main.lua` that imports the compiled entry module and runs an explicit state loop each frame. It requires the entry module to export:
 
 ```callisto
-pub fn init() -> State do
+pub fn init() -> State {
   State { ... }
-end
+}
 
-pub fn update(state: State) -> State do
+pub fn update(state: State) -> State {
   ...
-end
+}
 
-pub fn render(state: State) -> Unit do
+pub fn render(state: State) -> Unit {
   ()
-end
+}
 ```
 
 Manual shim (same as before):
@@ -121,7 +121,7 @@ local state = game.init()
 function playdate.update()
   state = game.update(state)
   game.render(state)
-end
+}
 ```
 
 **Alternative (single-module, no shim):** Put everything in `src/main.cal` compiled to `Source/main.lua` with `-o Source/main.lua`. The emitted Lua includes all functions. Then a one-line extern + call at the bottom sets up the loop. Simpler for small games.

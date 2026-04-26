@@ -2,11 +2,11 @@ module playdate.system
 
 import playdate
 
-pub fn crank_is_right_half() -> Bool do
+pub fn crank_is_right_half() -> Bool {
   playdate.getCrankPosition() >= 180.0
-end
+}
 
-pub fn crank_is_top_half() -> Bool do
+pub fn crank_is_top_half() -> Bool {
   let pos = playdate.getCrankPosition()
   pos >= 90.0 and pos <= 270.0
-end
+}

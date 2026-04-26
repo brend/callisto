@@ -1,19 +1,32 @@
 module demo.main
 import math.vec2
 
+newtype UserId = Int
+
 type Vec2 { x: Float, y: Float }
 
-fn area(v: Vec2) -> Float do
+type Maybe =
+  | Some { value: Int }
+  | None
+
+fn area(v: Vec2) -> Float {
   let x_coord: Float = v.x
   var acc: Float = 0
   acc = acc + length(v)
   v.normalize()
   acc
-end
+}
 
-fn banner(name: String, count: Int, id: Int, point: Vec2) -> String do
+fn banner(name: String, count: Int, id: Int, point: Vec2) -> String {
   let simple: String = "ID ${id}"
   let text: String = "Hello ${name}! #${count + 1} \${literal}"
   let shifted: String = "${point with { x = point.x + 1 }}"
+  let values: List[Int] = [1, 2, 3]
+  let maybe: Option[Int] = Some(id)
+  let moved = Vec2 { x_coord, y = point.y }
+  match maybe {
+    case Some(value) => text
+    case None => "none",
+  }
   text
-end
+}

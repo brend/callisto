@@ -41,7 +41,7 @@ This repository contains `callisto`, a Callisto-to-Lua compiler implemented in R
 - Prefer ID-based references (`TypeId`, `FuncId`, `VariantId`, `LocalId`, `TypeParamId`) for semantic wiring.
 - Keep extern/import behavior consistent with current syntax:
   - `import foo.bar` and `import foo.bar.{item}`
-  - `extern module foo.bar do ... end`
+  - `extern module foo.bar { ... }`
 
 ## Done Criteria
 For feature work, expect all of the following:

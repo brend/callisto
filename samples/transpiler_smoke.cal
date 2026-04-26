@@ -1,7 +1,7 @@
 module smoke
 
-pub fn main() -> Int do
+pub fn main() -> Int {
   let a = 40
   let b = 2
   a + b
-end
+}

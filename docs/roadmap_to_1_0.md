@@ -67,7 +67,7 @@ Completion gate:
 Must-do tracks:
 
 - Replace keyword-delimited blocks with brace-delimited blocks across functions, control flow, `impl`, `match`, extern declarations, and type/constructor forms where applicable.
-- Decide whether the old `do`/`end` block style is rejected immediately or accepted with a deprecation diagnostic for one release, then document that policy.
+- Reject the old `do`/`then`/`end` block style immediately with migration diagnostics.
 - Update parser diagnostics so common migration mistakes point from old block delimiters to the new brace form.
 - Update all samples, README examples, workflow docs, cheat sheet entries, and golden fixtures to use brace-delimited syntax.
 - Improve VS Code and Zed syntax packages for the 1.0 language surface, including `newtype`, built-in `List[T]`/`Option[T]`, multiline sum declarations, record field punning, trailing commas, constructor patterns, extern declarations, and brace-delimited blocks.

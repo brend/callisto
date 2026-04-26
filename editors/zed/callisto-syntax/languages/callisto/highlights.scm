@@ -13,6 +13,7 @@
 (type_identifier) @type
 
 (type_declaration name: (type_identifier) @type)
+(newtype_declaration name: (type_identifier) @type)
 (impl_declaration target: (type_identifier) @type)
 (sum_variant name: (type_identifier) @constructor)
 (record_literal name: (type_identifier) @constructor)
@@ -45,21 +46,18 @@
   "extern"
   "fn"
   "type"
+  "newtype"
   "impl"
   "let"
   "var"
   "if"
-  "then"
-  "elseif"
   "else"
   "match"
   "case"
   "while"
-  "do"
   "for"
   "in"
   "return"
-  "end"
   "with"
   "and"
   "or"

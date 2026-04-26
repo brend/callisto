@@ -253,7 +253,7 @@ mod tests {
     fn returns_default_when_no_config_exists() {
         let root = unique_temp_dir("default");
         let entry = root.join("main.cal");
-        fs::write(&entry, "fn main() -> Int do 0 end\n").expect("write entry");
+        fs::write(&entry, "fn main() -> Int { 0 }\n").expect("write entry");
 
         let loaded = load_project_config(&entry, None).expect("load config");
         assert!(matches!(loaded.source, ConfigSource::Default));
@@ -268,7 +268,7 @@ mod tests {
         let src_dir = root.join("src");
         fs::create_dir_all(&src_dir).expect("create src dir");
         let entry = src_dir.join("app.cal");
-        fs::write(&entry, "fn main() -> Int do 0 end\n").expect("write entry");
+        fs::write(&entry, "fn main() -> Int { 0 }\n").expect("write entry");
 
         let absolute_dep = normalize(&root.join("dep"));
         let absolute_dep_escaped = absolute_dep.to_string_lossy().replace('\\', "\\\\");
@@ -303,7 +303,7 @@ mod tests {
         fs::create_dir_all(&cfg_dir).expect("create cfg dir");
 
         let entry = entry_dir.join("main.cal");
-        fs::write(&entry, "fn main() -> Int do 0 end\n").expect("write entry");
+        fs::write(&entry, "fn main() -> Int { 0 }\n").expect("write entry");
         fs::write(
             entry_dir.join("callisto.toml"),
             "package = \"from_entry\"\n",
@@ -326,7 +326,7 @@ mod tests {
         let root = unique_temp_dir("empty-root");
         let entry = root.join("main.cal");
         let config = root.join("callisto.toml");
-        fs::write(&entry, "fn main() -> Int do 0 end\n").expect("write entry");
+        fs::write(&entry, "fn main() -> Int { 0 }\n").expect("write entry");
         fs::write(&config, "module_roots = [\"\", \"lib\"]\n").expect("write config");
 
         let err = load_project_config(&entry, None).expect_err("expected invalid config");
@@ -341,7 +341,7 @@ mod tests {
         let root = unique_temp_dir("dup-root");
         let entry = root.join("main.cal");
         let config = root.join("callisto.toml");
-        fs::write(&entry, "fn main() -> Int do 0 end\n").expect("write entry");
+        fs::write(&entry, "fn main() -> Int { 0 }\n").expect("write entry");
         fs::write(&config, "module_roots = [\"lib\", \"lib\"]\n").expect("write config");
 
         let err = load_project_config(&entry, None).expect_err("expected invalid config");

@@ -2,50 +2,50 @@ module playdate.input
 
 import playdate
 
-fn k_button_left() -> Int do
+fn k_button_left() -> Int {
   1
-end
+}
 
-fn k_button_right() -> Int do
+fn k_button_right() -> Int {
   2
-end
+}
 
-fn k_button_up() -> Int do
+fn k_button_up() -> Int {
   4
-end
+}
 
-fn k_button_down() -> Int do
+fn k_button_down() -> Int {
   8
-end
+}
 
-fn k_button_b() -> Int do
+fn k_button_b() -> Int {
   16
-end
+}
 
-fn k_button_a() -> Int do
+fn k_button_a() -> Int {
   32
-end
+}
 
-pub fn left_pressed() -> Bool do
+pub fn left_pressed() -> Bool {
   playdate.buttonIsPressed(k_button_left())
-end
+}
 
-pub fn right_pressed() -> Bool do
+pub fn right_pressed() -> Bool {
   playdate.buttonIsPressed(k_button_right())
-end
+}
 
-pub fn up_pressed() -> Bool do
+pub fn up_pressed() -> Bool {
   playdate.buttonIsPressed(k_button_up())
-end
+}
 
-pub fn down_pressed() -> Bool do
+pub fn down_pressed() -> Bool {
   playdate.buttonIsPressed(k_button_down())
-end
+}
 
-pub fn a_pressed() -> Bool do
+pub fn a_pressed() -> Bool {
   playdate.buttonIsPressed(k_button_a())
-end
+}
 
-pub fn b_just_pressed() -> Bool do
+pub fn b_just_pressed() -> Bool {
   playdate.buttonJustPressed(k_button_b())
-end
+}

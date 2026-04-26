@@ -11,6 +11,8 @@ Syntax highlighting support for Callisto (`.cal`, `.luna`) in the Zed editor.
 
 This extension includes interpolation highlighting for strings, including `${expr}` segments and escaped interpolation markers like `\${literal}`.
 
+The grammar tracks the v0.8 source surface: brace-delimited blocks, `else if`, `newtype`, `List[T]`, `Option[T]`, multiline sum declarations, record field punning, constructor patterns, extern declarations, and trailing commas.
+
 ## Install as a Dev Extension
 
 1. Open Zed.
@@ -26,6 +28,8 @@ npm test
 ```
 
 This regenerates the bundled Tree-sitter parser and verifies parsing + highlight captures against `tests/fixtures/highlighting.cal`.
+
+Known limit: this package provides syntax highlighting only. Diagnostics and future language-server behavior are expected to be backed by `callisto check`.
 
 ## Notes
 

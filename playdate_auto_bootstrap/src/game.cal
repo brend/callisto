@@ -27,344 +27,344 @@ type ViewModel {
   last_transition: SceneTransition
 }
 
-impl ViewModel do
-  fn heading(self: ViewModel) -> String do
-    match self.scene do
+impl ViewModel {
+  fn heading(self: ViewModel) -> String {
+    match self.scene {
       case Splash => "A/B press to navigate scenes"
       case Pilot => "Pilot mission: keep combo while managing heat"
       case Telemetry => "Telemetry: monitor system recovery"
-    end
-  end
-end
+    }
+  }
+}
 
-fn k_button_b() -> Int do
+fn k_button_b() -> Int {
   16
-end
+}
 
-fn k_button_a() -> Int do
+fn k_button_a() -> Int {
   32
-end
+}
 
-fn clamp(v: Int, lo: Int, hi: Int) -> Int do
-  if v < lo then
+fn clamp(v: Int, lo: Int, hi: Int) -> Int {
+  if v < lo {
     lo
-  elseif v > hi then
+  } else if v > hi {
     hi
-  else
+  } else {
     v
-  end
-end
+  }
+}
 
-fn is_pilot(scene: Scene) -> Bool do
-  match scene do
+fn is_pilot(scene: Scene) -> Bool {
+  match scene {
     case Pilot => true
     case Splash => false
     case Telemetry => false
-  end
-end
+  }
+}
 
-fn is_telemetry(scene: Scene) -> Bool do
-  match scene do
+fn is_telemetry(scene: Scene) -> Bool {
+  match scene {
     case Telemetry => true
     case Splash => false
     case Pilot => false
-  end
-end
+  }
+}
 
-fn is_moving(direction: CrankDirection) -> Bool do
-  match direction do
+fn is_moving(direction: CrankDirection) -> Bool {
+  match direction {
     case Clockwise => true
     case CounterClockwise => true
     case Still => false
-  end
-end
+  }
+}
 
-fn read_transition() -> SceneTransition do
-  if playdate.buttonJustPressed(k_button_a()) then
+fn read_transition() -> SceneTransition {
+  if playdate.buttonJustPressed(k_button_a()) {
     Advanced
-  elseif playdate.buttonJustPressed(k_button_b()) then
+  } else if playdate.buttonJustPressed(k_button_b()) {
     Rewound
-  else
+  } else {
     Stayed
-  end
-end
+  }
+}
 
-fn next_scene(scene: Scene) -> Scene do
-  match scene do
+fn next_scene(scene: Scene) -> Scene {
+  match scene {
     case Splash => Pilot
     case Pilot => Telemetry
     case Telemetry => Splash
-  end
-end
+  }
+}
 
-fn prev_scene(scene: Scene) -> Scene do
-  match scene do
+fn prev_scene(scene: Scene) -> Scene {
+  match scene {
     case Splash => Telemetry
     case Pilot => Splash
     case Telemetry => Pilot
-  end
-end
+  }
+}
 
-fn apply_transition(scene: Scene, transition: SceneTransition) -> Scene do
-  match transition do
+fn apply_transition(scene: Scene, transition: SceneTransition) -> Scene {
+  match transition {
     case Advanced => next_scene(scene)
     case Rewound => prev_scene(scene)
     case Stayed => scene
-  end
-end
+  }
+}
 
-fn transition_delta(transition: SceneTransition) -> Int do
-  match transition do
+fn transition_delta(transition: SceneTransition) -> Int {
+  match transition {
     case Stayed => 0
     case Advanced => 1
     case Rewound => 1
-  end
-end
+  }
+}
 
-fn bump_pilot_frames(scene: Scene, total: Int) -> Int do
-  match scene do
+fn bump_pilot_frames(scene: Scene, total: Int) -> Int {
+  match scene {
     case Pilot => total + 1
     case Splash => total
     case Telemetry => total
-  end
-end
+  }
+}
 
-fn bump_telemetry_frames(scene: Scene, total: Int) -> Int do
-  match scene do
+fn bump_telemetry_frames(scene: Scene, total: Int) -> Int {
+  match scene {
     case Telemetry => total + 1
     case Splash => total
     case Pilot => total
-  end
-end
+  }
+}
 
-fn read_direction(delta: Float) -> CrankDirection do
-  if delta > 0.0 then
+fn read_direction(delta: Float) -> CrankDirection {
+  if delta > 0.0 {
     Clockwise
-  elseif delta < 0.0 then
+  } else if delta < 0.0 {
     CounterClockwise
-  else
+  } else {
     Still
-  end
-end
+  }
+}
 
-fn read_side(position: Float) -> CrankSide do
-  if position >= 180.0 then
+fn read_side(position: Float) -> CrankSide {
+  if position >= 180.0 {
     Right
-  else
+  } else {
     Left
-  end
-end
+  }
+}
 
-fn scene_title(scene: Scene) -> String do
-  match scene do
+fn scene_title(scene: Scene) -> String {
+  match scene {
     case Splash => "Scene: Splash"
     case Pilot => "Scene: Pilot"
     case Telemetry => "Scene: Telemetry"
-  end
-end
+  }
+}
 
-fn direction_label(direction: CrankDirection) -> String do
-  match direction do
+fn direction_label(direction: CrankDirection) -> String {
+  match direction {
     case Clockwise => "Crank: +"
     case CounterClockwise => "Crank: -"
     case Still => "Crank: 0"
-  end
-end
+  }
+}
 
-fn side_label(side: CrankSide) -> String do
-  match side do
+fn side_label(side: CrankSide) -> String {
+  match side {
     case Right => "Crank side: right"
     case Left => "Crank side: left"
-  end
-end
+  }
+}
 
-fn transition_label(transition: SceneTransition) -> String do
-  match transition do
+fn transition_label(transition: SceneTransition) -> String {
+  match transition {
     case Stayed => "Last transition: none"
     case Advanced => "Last transition: next (A)"
     case Rewound => "Last transition: prev (B)"
-  end
-end
+  }
+}
 
-fn scene_hint(scene: Scene) -> String do
-  match scene do
+fn scene_hint(scene: Scene) -> String {
+  match scene {
     case Splash => "Press A: next scene, B: previous scene"
     case Pilot => "Spin crank for score, combo, and lap progress"
     case Telemetry => "Cooling mode restores energy and lowers heat"
-  end
-end
+  }
+}
 
-fn session_label(scene_changes: Int) -> String do
-  if scene_changes < 3 then
+fn session_label(scene_changes: Int) -> String {
+  if scene_changes < 3 {
     "Session: warmup"
-  elseif scene_changes < 8 then
+  } else if scene_changes < 8 {
     "Session: active"
-  else
+  } else {
     "Session: deep run"
-  end
-end
+  }
+}
 
-fn engagement_label(pilot_frames: Int, telemetry_frames: Int) -> String do
-  if pilot_frames > telemetry_frames then
+fn engagement_label(pilot_frames: Int, telemetry_frames: Int) -> String {
+  if pilot_frames > telemetry_frames {
     "Engagement: pilot-heavy"
-  elseif telemetry_frames > pilot_frames then
+  } else if telemetry_frames > pilot_frames {
     "Engagement: telemetry-heavy"
-  else
+  } else {
     "Engagement: balanced"
-  end
-end
+  }
+}
 
-fn energy_delta(scene: Scene, direction: CrankDirection) -> Int do
-  if is_pilot(scene) then
-    if is_moving(direction) then
+fn energy_delta(scene: Scene, direction: CrankDirection) -> Int {
+  if is_pilot(scene) {
+    if is_moving(direction) {
       0 - 2
-    else
+    } else {
       0 - 1
-    end
-  elseif is_telemetry(scene) then
+    }
+  } else if is_telemetry(scene) {
     2
-  else
+  } else {
     1
-  end
-end
+  }
+}
 
-fn heat_delta(scene: Scene, direction: CrankDirection) -> Int do
-  if is_pilot(scene) then
-    match direction do
+fn heat_delta(scene: Scene, direction: CrankDirection) -> Int {
+  if is_pilot(scene) {
+    match direction {
       case Clockwise => 2
       case CounterClockwise => 3
       case Still => 1
-    end
-  elseif is_telemetry(scene) then
+    }
+  } else if is_telemetry(scene) {
     0 - 3
-  else
+  } else {
     0 - 1
-  end
-end
+  }
+}
 
-fn next_combo(scene: Scene, direction: CrankDirection, combo: Int) -> Int do
-  if is_pilot(scene) and is_moving(direction) then
+fn next_combo(scene: Scene, direction: CrankDirection, combo: Int) -> Int {
+  if is_pilot(scene) and is_moving(direction) {
     clamp(combo + 1, 0, 9)
-  else
+  } else {
     0
-  end
-end
+  }
+}
 
-fn score_delta(scene: Scene, direction: CrankDirection, combo: Int) -> Int do
-  if is_pilot(scene) and is_moving(direction) then
+fn score_delta(scene: Scene, direction: CrankDirection, combo: Int) -> Int {
+  if is_pilot(scene) and is_moving(direction) {
     1 + combo
-  else
+  } else {
     0
-  end
-end
+  }
+}
 
-fn lap_delta(scene: Scene, direction: CrankDirection, ticks: Int) -> Int do
-  if is_pilot(scene) and is_moving(direction) and ticks % 180 == 0 then
+fn lap_delta(scene: Scene, direction: CrankDirection, ticks: Int) -> Int {
+  if is_pilot(scene) and is_moving(direction) and ticks % 180 == 0 {
     1
-  else
+  } else {
     0
-  end
-end
+  }
+}
 
-fn alert_from_heat(heat: Int) -> AlertLevel do
-  if heat >= 75 then
+fn alert_from_heat(heat: Int) -> AlertLevel {
+  if heat >= 75 {
     Overdrive
-  elseif heat >= 40 then
+  } else if heat >= 40 {
     Heating
-  else
+  } else {
     Nominal
-  end
-end
+  }
+}
 
-fn alert_label(alert: AlertLevel) -> String do
-  match alert do
+fn alert_label(alert: AlertLevel) -> String {
+  match alert {
     case Nominal => "Alert: nominal"
     case Heating => "Alert: heating"
     case Overdrive => "Alert: overdrive"
-  end
-end
+  }
+}
 
-fn energy_label(energy: Int) -> String do
-  if energy > 75 then
+fn energy_label(energy: Int) -> String {
+  if energy > 75 {
     "Energy: high"
-  elseif energy > 40 then
+  } else if energy > 40 {
     "Energy: stable"
-  elseif energy > 15 then
+  } else if energy > 15 {
     "Energy: low"
-  else
+  } else {
     "Energy: critical"
-  end
-end
+  }
+}
 
-fn heat_label(heat: Int) -> String do
-  if heat < 30 then
+fn heat_label(heat: Int) -> String {
+  if heat < 30 {
     "Heat: cool"
-  elseif heat < 70 then
+  } else if heat < 70 {
     "Heat: elevated"
-  else
+  } else {
     "Heat: dangerous"
-  end
-end
+  }
+}
 
-fn score_label(score: Int) -> String do
-  if score < 40 then
+fn score_label(score: Int) -> String {
+  if score < 40 {
     "Score tier: rookie"
-  elseif score < 120 then
+  } else if score < 120 {
     "Score tier: pilot"
-  else
+  } else {
     "Score tier: ace"
-  end
-end
+  }
+}
 
-fn combo_label(combo: Int) -> String do
-  if combo == 0 then
+fn combo_label(combo: Int) -> String {
+  if combo == 0 {
     "Combo: none"
-  elseif combo < 4 then
+  } else if combo < 4 {
     "Combo: building"
-  elseif combo < 8 then
+  } else if combo < 8 {
     "Combo: hot"
-  else
+  } else {
     "Combo: maxed"
-  end
-end
+  }
+}
 
-fn lap_label(laps: Int) -> String do
-  if laps == 0 then
+fn lap_label(laps: Int) -> String {
+  if laps == 0 {
     "Laps: warming up"
-  elseif laps < 4 then
+  } else if laps < 4 {
     "Laps: patrol"
-  else
+  } else {
     "Laps: endurance"
-  end
-end
+  }
+}
 
-fn progress_width(scene_changes: Int) -> Int do
+fn progress_width(scene_changes: Int) -> Int {
   let max = 180
   let raw = scene_changes * 12
-  if raw > max then
+  if raw > max {
     max
-  else
+  } else {
     raw
-  end
-end
+  }
+}
 
-fn direction_pointer_y(direction: CrankDirection) -> Int do
-  match direction do
+fn direction_pointer_y(direction: CrankDirection) -> Int {
+  match direction {
     case Clockwise => 28
     case CounterClockwise => 52
     case Still => 40
-  end
-end
+  }
+}
 
-fn pulse_line_y(ticks: Int) -> Int do
-  if ticks % 120 < 60 then
+fn pulse_line_y(ticks: Int) -> Int {
+  if ticks % 120 < 60 {
     232
-  else
+  } else {
     228
-  end
-end
+  }
+}
 
-fn build_view(base: ViewModel) -> ViewModel do
+fn build_view(base: ViewModel) -> ViewModel {
   timer.updateTimers()
 
   let transition = read_transition()
@@ -397,9 +397,9 @@ fn build_view(base: ViewModel) -> ViewModel do
   with_pilot with {
     telemetry_frames = bump_telemetry_frames(scene, with_pilot.telemetry_frames)
   }
-end
+}
 
-pub fn init() -> ViewModel do
+pub fn init() -> ViewModel {
   ViewModel {
     scene = Splash,
     direction = Still,
@@ -416,13 +416,13 @@ pub fn init() -> ViewModel do
     heat = 10,
     last_transition = Stayed
   }
-end
+}
 
-pub fn update(state: ViewModel) -> ViewModel do
+pub fn update(state: ViewModel) -> ViewModel {
   build_view(state)
-end
+}
 
-pub fn render(model: ViewModel) -> Unit do
+pub fn render(model: ViewModel) -> Unit {
   graphics.clear()
   graphics.drawLine(20, 74, 380, 74)
   graphics.drawLine(360, 40, 392, direction_pointer_y(model.direction))
@@ -451,4 +451,4 @@ pub fn render(model: ViewModel) -> Unit do
   graphics.drawText(lap_label(model.laps), 160, 234)
   graphics.drawText(engagement_label(model.pilot_frames, model.telemetry_frames), 20, 248)
   ()
-end
+}

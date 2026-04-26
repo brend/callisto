@@ -11,7 +11,7 @@
   {
     "name": "function declaration capture",
     "scope": "meta.declaration.function.callisto",
-    "sample": "fn area(v: Vec2) -> Float do",
+    "sample": "fn area(v: Vec2) -> Float {",
     "captures": {
       "1": "fn",
       "2": "area"
@@ -24,6 +24,15 @@
     "captures": {
       "1": "type",
       "2": "Vec2"
+    }
+  },
+  {
+    "name": "newtype declaration capture",
+    "scope": "meta.declaration.type.callisto",
+    "sample": "newtype UserId = Int",
+    "captures": {
+      "1": "newtype",
+      "2": "UserId"
     }
   },
   {
@@ -47,7 +56,7 @@
   {
     "name": "parameter declaration capture",
     "scope": "meta.parameter.declaration.callisto",
-    "sample": "fn area(v: Vec2) -> Float do",
+    "sample": "fn area(v: Vec2) -> Float {",
     "captures": {
       "1": "v",
       "2": ":"
@@ -128,6 +137,22 @@
     "sample": "let shifted: String = \"${point with { x = point.x + 1 }}\"",
     "captures": {
       "0": "}"
+    }
+  },
+  {
+    "name": "prelude list builtin type",
+    "scope": "support.type.builtin.callisto",
+    "sample": "let values: List[Int] = [1, 2, 3]",
+    "captures": {
+      "0": "List"
+    }
+  },
+  {
+    "name": "prelude option builtin type",
+    "scope": "support.type.builtin.callisto",
+    "sample": "let maybe: Option[Int] = Some(id)",
+    "captures": {
+      "0": "Option"
     }
   }
 ]

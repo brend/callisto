@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-04-26
+
+### Added
+- `v0.8` planning docs and milestone checklists for the brace syntax and developer feedback release.
+- Parser migration diagnostics `CAL-PAR-001` for old block delimiters and `CAL-PAR-002` for `elseif`.
+- Editor regression coverage for modern Callisto syntax in the VS Code and Zed packages.
+- Minimum viable future LSP scope documentation.
+
+### Changed
+- Source blocks now use brace-delimited syntax across functions, `impl`, `extern module`, control flow, and `match`.
+- `else if` replaces `elseif`.
+- README, cheat sheet, Playdate workflow docs, samples, Playdate templates, bindings, and editor fixtures now use the v0.8 syntax.
+
+### Removed
+- Keyword-delimited `do`/`then`/`end` blocks are no longer accepted.
+- Optional `match ... do ... end` syntax is no longer accepted.
+
+## [0.7.0] - 2026-04-26
+
 ### Added
 - `v0.7` planning docs and milestone checklists for the core prelude and workflow reliability release.
 - Standard prelude support for built-in `Option[T]`, `Some(T)`, `None`, and `List[T]`.

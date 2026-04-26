@@ -44,20 +44,20 @@ import foo.bar.{baz, qux}
 ### Functions
 
 ```cal
-fn add(a: Int, b: Int) -> Int do
+fn add(a: Int, b: Int) -> Int {
   a + b
-end
+}
 
 fn add_multiline(
   a: Int,
   b: Int,
-) -> Int do
+) -> Int {
   a + b
-end
+}
 
-pub fn log(msg: String) do
+pub fn log(msg: String) {
   ()
-end
+}
 ```
 
 - Params are always typed.
@@ -106,23 +106,23 @@ extern type PDImage
 
 extern fn now_ms() -> Int
 
-extern module playdate.graphics do
+extern module playdate.graphics {
   extern fn clear() -> Unit
   extern fn drawText(text: String, x: Float, y: Float) -> Unit
-end
+}
 ```
 
-- `extern module` uses `do ... end`.
+- `extern module` uses `{ ... }`.
 - Members inside must be declared as `extern fn`.
 
 ### Impl blocks
 
 ```cal
-impl Vec2 do
-  fn moved(self: Vec2, dx: Int, dy: Int) -> Vec2 do
+impl Vec2 {
+  fn moved(self: Vec2, dx: Int, dy: Int) -> Vec2 {
     self with { x = self.x + dx, y = self.y + dy }
-  end
-end
+  }
+}
 ```
 
 ## Type expressions
@@ -148,13 +148,13 @@ total = total + x
 return total
 return
 
-while total < 10 do
+while total < 10 {
   total = total + 1
-end
+}
 
-for i in 0..10 do
+for i in 0..10 {
   total = total + i
-end
+}
 ```
 
 - Assignment target must be a local name (not `obj.field = ...`).
@@ -179,24 +179,24 @@ Some(1)                    // positional constructor
 None                       // nullary constructor
 p with { x = p.x + 1 }     // record update
 
-if cond then
+if cond {
   1
-elseif other then
+} else if other {
   2
-else
+} else {
   3
-end
+}
 
-match value do
+match value {
   case Some(v) => v
   case None => 0,
-end
+}
 
 let inc = fn (x: Int) -> Int => x + 1
 ```
 
 - `if` is an expression and requires `else`.
-- `match` supports optional `do` (`match value do ... end` or `match value ... end`).
+- `match` uses a brace-delimited arm list: `match value { case Pattern => expr }`.
 - Trailing commas are accepted in multiline params/args/payloads/match arms.
 
 ## Patterns (`match case`)

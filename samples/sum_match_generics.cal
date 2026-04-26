@@ -2,20 +2,20 @@ module sum_match_generics
 
 type MaybeInt = | None | Some(Int)
 
-fn id[T](x: T) -> T do
+fn id[T](x: T) -> T {
   x
-end
+}
 
-pub fn choose(flag: Bool, a: Int, b: Int) -> Int do
+pub fn choose(flag: Bool, a: Int, b: Int) -> Int {
   var picked: MaybeInt = Some(id(a))
-  if flag then
+  if flag {
     picked = Some(id(a))
-  else
+  } else {
     picked = Some(id(b))
-  end
+  }
 
-  match picked do
+  match picked {
     case Some(v) => v
     case None    => 0
-  end
-end
+  }
+}

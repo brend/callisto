@@ -87,11 +87,11 @@ mod tests {
             .expect("time went backwards")
             .as_nanos();
         let path = std::env::temp_dir().join(format!("callisto_source_test_{}.luna", nonce));
-        std::fs::write(&path, "fn main() -> Int do\n1\nend\n").expect("failed to write temp file");
+        std::fs::write(&path, "fn main() -> Int {\n1\n}\n").expect("failed to write temp file");
 
         let file_id = db.load_file(&path).expect("failed to load temp file");
         let file = db.get(file_id).expect("loaded file missing");
-        assert_eq!(file.text, "fn main() -> Int do\n1\nend\n");
+        assert_eq!(file.text, "fn main() -> Int {\n1\n}\n");
 
         let _ = std::fs::remove_file(path);
     }

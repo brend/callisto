@@ -2,18 +2,18 @@ module records_impl_with
 
 type Vec2 { x: Int, y: Int }
 
-impl Vec2 do
-  fn length_sq(self: Vec2) -> Int do
+impl Vec2 {
+  fn length_sq(self: Vec2) -> Int {
     self.x * self.x + self.y * self.y
-  end
+  }
 
-  fn moved(self: Vec2, dx: Int, dy: Int) -> Vec2 do
+  fn moved(self: Vec2, dx: Int, dy: Int) -> Vec2 {
     self with { x = self.x + dx, y = self.y + dy }
-  end
-end
+  }
+}
 
-pub fn main() -> Int do
+pub fn main() -> Int {
   let start = Vec2 { x = 3, y = 4 }
   let shifted = start.moved(1, 2)
   shifted.length_sq()
-end
+}
