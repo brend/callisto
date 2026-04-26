@@ -400,13 +400,15 @@ impl<'a> Checker<'a> {
                     TirExprKind::Func(func_id),
                 );
             }
-            self.diagnostics.error_code(
+            self.diagnostics.error_with_note_code(
                 span,
                 DIAG_RES_UNKNOWN_IMPORTED_ITEM,
                 format!(
-                    "imported item '{}' resolves to '{}' but no matching function/extern declaration exists",
+                    "imported item '{}' resolves to '{}' but no matching public function/extern declaration exists",
                     name, qualified
                 ),
+                span,
+                self.missing_public_import_note(qualified),
             );
             return self.mk_expr(
                 Type::Error,
@@ -479,13 +481,15 @@ impl<'a> Checker<'a> {
             );
         }
         if self.path_references_import_alias(path) {
-            self.diagnostics.error_code(
+            self.diagnostics.error_with_note_code(
                 span,
                 DIAG_RES_UNKNOWN_IMPORTED_ITEM,
                 format!(
-                    "imported path '{}' has no matching function/extern declaration",
+                    "imported path '{}' has no matching public function/extern declaration",
                     name
                 ),
+                span,
+                self.missing_public_import_note(&name),
             );
         }
         self.mk_expr(Type::Error, TirExprKind::ExternPath(rewritten))
@@ -621,28 +625,45 @@ impl<'a> Checker<'a> {
                 );
             }
             if self.is_imported_module_path(segments) {
-                self.diagnostics.error_code(
+                self.diagnostics.error_with_note_code(
                     span,
                     DIAG_RES_UNKNOWN_IMPORTED_MEMBER,
                     format!(
-                        "unknown imported module member '{}'; add a matching extern declaration",
+                        "unknown imported module member '{}'; no matching public function/extern declaration was found",
                         joined
                     ),
+                    span,
+                    self.missing_public_import_note(&joined),
                 );
             }
             return self.mk_expr(Type::Error, TirExprKind::ExternPath(next));
         }
 
-        if let Type::Named(type_id, type_args) = &base.ty
-            && let Some(field_ty) = self.lookup_record_field(*type_id, type_args, name)
-        {
-            return self.mk_expr(
-                field_ty,
-                TirExprKind::Field {
-                    base: Box::new(base),
-                    field: name.to_string(),
-                },
-            );
+        if let Type::Named(type_id, type_args) = &base.ty {
+            if let Some(field_ty) = self.lookup_record_field(*type_id, type_args, name) {
+                return self.mk_expr(
+                    field_ty,
+                    TirExprKind::Field {
+                        base: Box::new(base),
+                        field: name.to_string(),
+                    },
+                );
+            }
+            if let Some(type_name) = self.extern_opaque_type_name(*type_id) {
+                self.diagnostics.error_with_note(
+                    span,
+                    format!("cannot access field '{}'", name),
+                    span,
+                    self.opaque_type_import_note(type_name),
+                );
+                return self.mk_expr(
+                    Type::Error,
+                    TirExprKind::Field {
+                        base: Box::new(base),
+                        field: name.to_string(),
+                    },
+                );
+            }
         }
 
         self.diagnostics
@@ -692,13 +713,15 @@ impl<'a> Checker<'a> {
                 );
             }
             if self.is_imported_module_path(segments) {
-                self.diagnostics.error_code(
+                self.diagnostics.error_with_note_code(
                     span,
                     DIAG_RES_UNKNOWN_IMPORTED_MEMBER,
                     format!(
-                        "unknown imported module function '{}'; add a matching extern declaration",
+                        "unknown imported module function '{}'; no matching public function/extern declaration was found",
                         joined
                     ),
+                    span,
+                    self.missing_public_import_note(&joined),
                 );
             }
             let callee = TirExpr {
@@ -1181,6 +1204,18 @@ impl<'a> Checker<'a> {
                     span,
                     format!("construct it with `{}(value)`", type_name),
                 );
+            } else if self
+                .resolved
+                .type_infos
+                .get(type_id.0 as usize)
+                .is_some_and(|info| matches!(info.kind, TypeKind::ExternOpaque))
+            {
+                self.diagnostics.error_with_note(
+                    span,
+                    format!("type '{}' is not a record type", type_name),
+                    span,
+                    self.opaque_type_import_note(type_name),
+                );
             } else {
                 self.diagnostics
                     .error(span, format!("type '{}' is not a record type", type_name));
@@ -1259,8 +1294,17 @@ impl<'a> Checker<'a> {
             }
             updated
         } else {
-            self.diagnostics
-                .error(span, "record update base must be a record type");
+            if let Some(type_name) = self.extern_opaque_type_name(type_id) {
+                self.diagnostics.error_with_note(
+                    span,
+                    "record update base must be a record type",
+                    span,
+                    self.opaque_type_import_note(type_name),
+                );
+            } else {
+                self.diagnostics
+                    .error(span, "record update base must be a record type");
+            }
             self.check_record_fields_with_expected(fields, None)
         };
 
@@ -2389,6 +2433,42 @@ impl<'a> Checker<'a> {
             }
             _ => None,
         }
+    }
+
+    fn extern_opaque_type_name(&self, type_id: TypeId) -> Option<&str> {
+        let info = self.resolved.type_infos.get(type_id.0 as usize)?;
+        if matches!(info.kind, TypeKind::ExternOpaque) {
+            Some(info.name.as_str())
+        } else {
+            None
+        }
+    }
+
+    fn opaque_type_import_note(&self, type_name: &str) -> String {
+        let mut import_paths = self
+            .resolved
+            .import_modules
+            .values()
+            .map(|segments| segments.join("."))
+            .collect::<Vec<_>>();
+        import_paths.sort();
+        import_paths.dedup();
+
+        let example = import_paths
+            .first()
+            .map(|path| format!("import {}.{{{}}}", path, type_name))
+            .unwrap_or_else(|| format!("import some.module.{{{}}}", type_name));
+
+        format!(
+            "this type is opaque in the current module; import it explicitly as an item (for example `{example}`) to use record constructors, field access, or `with` updates"
+        )
+    }
+
+    fn missing_public_import_note(&self, qualified_name: &str) -> String {
+        format!(
+            "if '{}' exists in the imported module, mark it 'pub' (or declare it in an `extern module` block)",
+            qualified_name
+        )
     }
 
     fn variant_payload(&self, variant_id: VariantId) -> Option<&VariantPayload> {

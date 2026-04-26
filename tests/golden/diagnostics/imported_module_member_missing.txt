@@ -1,1 +1,2 @@
-golden_import_member.luna:9:3: error[CAL-RES-011]: unknown imported module function 'foo.bar.qux'; add a matching extern declaration
+golden_import_member.luna:9:3: error[CAL-RES-011]: unknown imported module function 'foo.bar.qux'; no matching public function/extern declaration was found
+  note at golden_import_member.luna:9:3: if 'foo.bar.qux' exists in the imported module, mark it 'pub' (or declare it in an `extern module` block)

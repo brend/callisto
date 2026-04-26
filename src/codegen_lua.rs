@@ -55,6 +55,7 @@ impl<'a> LuaEmitter<'a> {
     fn emit(mut self) -> String {
         self.line("local M = {}");
         self.line("");
+        self.emit_import_module_bootstrap();
 
         let non_extern_funcs: Vec<&TirFunc> = self
             .tir
@@ -99,6 +100,42 @@ impl<'a> LuaEmitter<'a> {
         self.line("");
         self.line("return M");
         self.out
+    }
+
+    fn emit_import_module_bootstrap(&mut self) {
+        let mut import_paths: Vec<Vec<String>> = self.resolved.import_modules.values().cloned().collect();
+        import_paths.sort();
+        import_paths.dedup();
+
+        for (idx, path) in import_paths.iter().enumerate() {
+            if path.is_empty() {
+                continue;
+            }
+
+            let lua_import_path = path.join("/");
+            self.line(&format!(
+                "local __import_ok_{idx}, __import_mod_{idx} = pcall(import, {:?})",
+                lua_import_path
+            ));
+            self.line(&format!("if __import_ok_{idx} then"));
+            self.indent += 1;
+
+            let full_path = path.join(".");
+            for segment_end in 0..(path.len().saturating_sub(1)) {
+                let scope = path[..=segment_end].join(".");
+                self.line(&format!("{scope} = {scope} or {{}}"));
+            }
+            self.line(&format!(
+                "{full_path} = {full_path} or __import_mod_{idx}"
+            ));
+
+            self.indent -= 1;
+            self.line("end");
+        }
+
+        if !import_paths.is_empty() {
+            self.line("");
+        }
     }
 
     fn emit_function(&mut self, func: &TirFunc) {

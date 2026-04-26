@@ -2387,8 +2387,13 @@ end
         assert!(type_diags.has_errors());
         assert!(type_diags.items.iter().any(|d| {
             d.message.contains(
-                "imported item 'qux' resolves to 'foo.bar.qux' but no matching function/extern declaration exists",
+                "imported item 'qux' resolves to 'foo.bar.qux' but no matching public function/extern declaration exists",
             )
+        }));
+        assert!(type_diags.items.iter().any(|d| {
+            d.notes
+                .iter()
+                .any(|(_, note)| note.contains("mark it 'pub'"))
         }));
     }
 
@@ -2416,8 +2421,13 @@ end
         assert!(type_diags.has_errors());
         assert!(type_diags.items.iter().any(|d| {
             d.message.contains(
-                "unknown imported module function 'foo.bar.qux'; add a matching extern declaration",
+                "unknown imported module function 'foo.bar.qux'; no matching public function/extern declaration was found",
             )
+        }));
+        assert!(type_diags.items.iter().any(|d| {
+            d.notes
+                .iter()
+                .any(|(_, note)| note.contains("mark it 'pub'"))
         }));
     }
 
@@ -2462,6 +2472,61 @@ end
         let (_, _, diagnostics, compiled) = compile_pipeline(&entry).expect("pipeline failed");
         assert!(!diagnostics.has_errors(), "{:?}", diagnostics.items);
         assert!(compiled.is_some());
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn compile_pipeline_importing_private_item_reports_pub_hint() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_private_import_item_{}", nonce));
+        let lib_dir = root.join("lib");
+        std::fs::create_dir_all(&lib_dir).expect("failed to create temp dirs");
+
+        let lib = lib_dir.join("math.luna");
+        std::fs::write(
+            &lib,
+            r#"
+module lib.math
+
+fn hidden(x: Int) -> Int do
+  x
+end
+"#,
+        )
+        .expect("failed to write lib module");
+
+        let entry = root.join("main.luna");
+        std::fs::write(
+            &entry,
+            r#"
+module app
+
+import lib.math.{hidden}
+
+fn main() -> Int do
+  hidden(1)
+end
+"#,
+        )
+        .expect("failed to write entry module");
+
+        let (_, _, diagnostics, compiled) = compile_pipeline(&entry).expect("pipeline failed");
+        assert!(diagnostics.has_errors());
+        assert!(compiled.is_none());
+        assert!(diagnostics.items.iter().any(|d| {
+            d.message.contains(
+                "imported item 'hidden' resolves to 'lib.math.hidden' but no matching public function/extern declaration exists",
+            )
+        }));
+        assert!(diagnostics.items.iter().any(|d| {
+            d.notes
+                .iter()
+                .any(|(_, note)| note.contains("mark it 'pub'"))
+        }));
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -2560,6 +2625,11 @@ end
                 .iter()
                 .any(|d| d.message.contains("type 'Pair' is not a record type"))
         );
+        assert!(diagnostics.items.iter().any(|d| {
+            d.notes
+                .iter()
+                .any(|(_, note)| note.contains("import lib.math.{Pair}"))
+        }));
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -3649,6 +3719,62 @@ end
         let math_lua = out_dir.join("math.lua");
         let math_text = std::fs::read_to_string(&math_lua).expect("read math lua");
         assert!(math_text.contains("local M = {}"), "{math_text}");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn emitted_lua_bootstraps_imported_project_modules_for_qualified_calls() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("callisto_import_bootstrap_{}", nonce));
+        let out_dir = root.join("out");
+        std::fs::create_dir_all(&root).expect("failed to create root");
+
+        let entry = root.join("game.cal");
+        std::fs::write(
+            &entry,
+            r#"
+module game
+
+import core.{State}
+
+pub fn init() -> State do
+  State { frame = core.next_frame() }
+end
+"#,
+        )
+        .expect("failed to write entry");
+        std::fs::write(
+            root.join("core.cal"),
+            r#"
+module core
+
+pub type State { frame: Int }
+
+pub fn next_frame() -> Int do
+  1
+end
+"#,
+        )
+        .expect("failed to write core");
+
+        emit_lua_command_with_overrides(
+            &entry,
+            Some(out_dir.as_path()),
+            None,
+            &[],
+            false,
+        )
+        .expect("emit failed");
+
+        let game_lua = out_dir.join("game.lua");
+        let game_text = std::fs::read_to_string(&game_lua).expect("read game lua");
+        assert!(game_text.contains("pcall(import, \"core\")"), "{game_text}");
+        assert!(game_text.contains("core = core or __import_mod_0"), "{game_text}");
+        assert!(game_text.contains("core.next_frame()"), "{game_text}");
 
         let _ = std::fs::remove_dir_all(root);
     }
