@@ -173,7 +173,7 @@ The Playdate Simulator has a "Reload Game" hotkey (`⌘R`) — combine with fswa
 - `playdate_auto_bootstrap/`: auto-shim pattern using `--playdate-bootstrap`.
   Includes explicit-transition scene navigation (`A` next, `B` previous), persisted mission-loop counters/resources (`score`, `combo`, `laps`, `energy`, `heat`), crank telemetry labels, `playdate.timer.updateTimers()` usage, and graphics overlays driven by shared `playdate.graphics.drawLine/drawRect/fillRect` bindings.
 
-Current projects can use the standard prelude directly. `Option[T]`, `Some`, `None`, `List[T]`, `length`, and `map` do not require local type declarations or imports; `List[T]` emits as Lua array-style tables.
+Current projects can use the standard prelude directly. `Option[T]`, `Some`, `None`, `List[T]`, `length`, `map`, `append`, `filter`, and `fold` do not require local type declarations or imports; `List[T]` emits as Lua array-style tables.
 
 ## What to Build Next (Priority Order)
 

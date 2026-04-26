@@ -105,6 +105,23 @@ pub enum TirExprKind {
         list: Box<TirExpr>,
         mapper: Box<TirExpr>,
     },
+    ListFilter {
+        list: Box<TirExpr>,
+        predicate: Box<TirExpr>,
+    },
+    ListFold {
+        list: Box<TirExpr>,
+        initial: Box<TirExpr>,
+        reducer: Box<TirExpr>,
+    },
+    ListAppend {
+        list: Box<TirExpr>,
+        value: Box<TirExpr>,
+    },
+    ListIndex {
+        list: Box<TirExpr>,
+        index: Box<TirExpr>,
+    },
 
     Field {
         base: Box<TirExpr>,

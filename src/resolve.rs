@@ -26,7 +26,9 @@ const DIAG_RES_NULLABLE_OUTSIDE_EXTERN: &str = "CAL-RES-060";
 const DIAG_RES_NIL_OUTSIDE_EXTERN: &str = "CAL-RES-061";
 const DIAG_RES_RESERVED_PRELUDE_NAME: &str = "CAL-RES-070";
 
-const PRELUDE_RESERVED_NAMES: &[&str] = &["Option", "Some", "None", "List", "length", "map"];
+const PRELUDE_RESERVED_NAMES: &[&str] = &[
+    "Option", "Some", "None", "List", "length", "map", "append", "filter", "fold",
+];
 
 #[derive(Debug, Clone)]
 pub struct ResolvedModule {

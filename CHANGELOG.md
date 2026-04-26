@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- List indexing with `list[index]`, plus `append(list, value)`, `filter(list, fn)`, and `fold(list, initial, fn)` prelude helpers.
+- Regression coverage for the expanded `List[T]` API and direct Lua lowering.
+
+### Changed
+- `append`, `filter`, and `fold` are reserved prelude names and cannot be redeclared.
+
 ## [0.8.0] - 2026-04-26
 
 ### Added

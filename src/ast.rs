@@ -264,6 +264,10 @@ pub enum ExprKind {
         method: String,
         args: Vec<Expr>,
     },
+    Index {
+        collection: Box<Expr>,
+        index: Box<Expr>,
+    },
 
     Binary {
         op: BinaryOp,

@@ -4028,6 +4028,15 @@ type Maybe = | Some(Int)
 fn map(x: Int) -> Int {
   x
 }
+fn append(x: Int) -> Int {
+  x
+}
+fn filter(x: Int) -> Int {
+  x
+}
+fn fold(x: Int) -> Int {
+  x
+}
 "#;
 
         let (tokens, lex_diags) = lexer::lex(0, source);
@@ -4042,7 +4051,7 @@ fn map(x: Int) -> Int {
                 .iter()
                 .filter(|d| d.code.as_deref() == Some("CAL-RES-070"))
                 .count(),
-            3
+            6
         );
     }
 
@@ -4069,6 +4078,33 @@ fn main() -> Int {
         assert!(lua.contains("{ 1, 2, 3 }"), "{lua}");
         assert!(lua.contains("ipairs(__list)"), "{lua}");
         assert!(lua.contains("return #"), "{lua}");
+    }
+
+    #[test]
+    fn list_index_append_filter_and_fold_compile_to_lua_arrays() {
+        let source = r#"
+fn main() -> Int {
+  let xs: List[Int] = [1, 2, 3]
+  let ys = append(xs, 4)
+  let zs = filter(ys, fn (x: Int) -> Bool => x > 1)
+  fold(zs, zs[1], fn (acc: Int, x: Int) -> Int => acc + x)
+}
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (tir, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+
+        let lua = codegen_lua::emit_lua_module(&tir, &resolved);
+        assert!(lua.contains("__out[#__out + 1] = __value"), "{lua}");
+        assert!(lua.contains("if __predicate(__v)"), "{lua}");
+        assert!(lua.contains("__acc = __reducer(__acc, __v)"), "{lua}");
+        assert!(lua.contains("[1]"), "{lua}");
     }
 
     #[test]

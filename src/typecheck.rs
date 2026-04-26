@@ -358,6 +358,9 @@ impl<'a> Checker<'a> {
                 method,
                 args,
             } => self.check_method_call_expr(receiver, method, args, expr.span),
+            ExprKind::Index { collection, index } => {
+                self.check_index_expr(collection, index, expr.span)
+            }
             ExprKind::Binary { op, left, right } => {
                 self.check_binary_expr(*op, left, right, expr.span)
             }
@@ -509,6 +512,9 @@ impl<'a> Checker<'a> {
             match name.as_str() {
                 "length" => return self.check_prelude_length_call(args, span),
                 "map" => return self.check_prelude_map_call(args, span),
+                "append" => return self.check_prelude_append_call(args, span),
+                "filter" => return self.check_prelude_filter_call(args, span),
+                "fold" => return self.check_prelude_fold_call(args, span),
                 _ => {}
             }
         }
@@ -618,6 +624,42 @@ impl<'a> Checker<'a> {
         }
     }
 
+    fn check_index_expr(
+        &mut self,
+        collection: &Expr,
+        index: &Expr,
+        span: crate::span::Span,
+    ) -> TirExpr {
+        let list = self.check_expr(collection);
+        let elem_ty = match self.normalize_type(&list.ty) {
+            Type::List(elem) => *elem,
+            Type::Error => Type::Error,
+            other => {
+                self.diagnostics.error_code(
+                    span,
+                    DIAG_TYP_CALL_ARG_TYPE,
+                    format!("indexing expects List[T] but got {:?}", other),
+                );
+                Type::Error
+            }
+        };
+        let index = self.check_expr_with_expected(index, Some(&Type::Int));
+        if !self.is_assignable(&Type::Int, &index.ty) {
+            self.diagnostics.error_code(
+                span,
+                DIAG_TYP_CALL_ARG_TYPE,
+                format!("list index expects Int but got {:?}", index.ty),
+            );
+        }
+        self.mk_expr(
+            elem_ty,
+            TirExprKind::ListIndex {
+                list: Box::new(list),
+                index: Box::new(index),
+            },
+        )
+    }
+
     fn check_prelude_length_call(&mut self, args: &[Expr], span: crate::span::Span) -> TirExpr {
         if args.len() != 1 {
             self.diagnostics.error_code(
@@ -649,6 +691,63 @@ impl<'a> Checker<'a> {
             Type::Int,
             TirExprKind::ListLength {
                 list: Box::new(list),
+            },
+        )
+    }
+
+    fn check_prelude_append_call(&mut self, args: &[Expr], span: crate::span::Span) -> TirExpr {
+        if args.len() != 2 {
+            self.diagnostics.error_code(
+                span,
+                DIAG_TYP_CALL_ARG_COUNT,
+                format!("append expects 2 arguments, got {}", args.len()),
+            );
+            let list = args
+                .first()
+                .map(|arg| self.check_expr(arg))
+                .unwrap_or_else(|| self.mk_expr(Type::Error, TirExprKind::Unit));
+            let value = args
+                .get(1)
+                .map(|arg| self.check_expr(arg))
+                .unwrap_or_else(|| self.mk_expr(Type::Error, TirExprKind::Unit));
+            return self.mk_expr(
+                Type::Error,
+                TirExprKind::ListAppend {
+                    list: Box::new(list),
+                    value: Box::new(value),
+                },
+            );
+        }
+
+        let list = self.check_expr(&args[0]);
+        let elem_ty = match self.normalize_type(&list.ty) {
+            Type::List(elem) => *elem,
+            Type::Error => Type::Error,
+            other => {
+                self.diagnostics.error_code(
+                    span,
+                    DIAG_TYP_CALL_ARG_TYPE,
+                    format!("append expects first argument List[T] but got {:?}", other),
+                );
+                Type::Error
+            }
+        };
+        let value = self.check_expr_with_expected(&args[1], Some(&elem_ty));
+        if !self.is_assignable(&elem_ty, &value.ty) {
+            self.diagnostics.error_code(
+                span,
+                DIAG_TYP_CALL_ARG_TYPE,
+                format!(
+                    "append value has type {:?} but list element type is {:?}",
+                    value.ty, elem_ty
+                ),
+            );
+        }
+        self.mk_expr(
+            Type::List(Box::new(elem_ty)),
+            TirExprKind::ListAppend {
+                list: Box::new(list),
+                value: Box::new(value),
             },
         )
     }
@@ -729,6 +828,210 @@ impl<'a> Checker<'a> {
             TirExprKind::ListMap {
                 list: Box::new(list),
                 mapper: Box::new(mapper),
+            },
+        )
+    }
+
+    fn check_prelude_filter_call(&mut self, args: &[Expr], span: crate::span::Span) -> TirExpr {
+        if args.len() != 2 {
+            self.diagnostics.error_code(
+                span,
+                DIAG_TYP_CALL_ARG_COUNT,
+                format!("filter expects 2 arguments, got {}", args.len()),
+            );
+            let list = args
+                .first()
+                .map(|arg| self.check_expr(arg))
+                .unwrap_or_else(|| self.mk_expr(Type::Error, TirExprKind::Unit));
+            let predicate = args
+                .get(1)
+                .map(|arg| self.check_expr(arg))
+                .unwrap_or_else(|| self.mk_expr(Type::Error, TirExprKind::Unit));
+            return self.mk_expr(
+                Type::Error,
+                TirExprKind::ListFilter {
+                    list: Box::new(list),
+                    predicate: Box::new(predicate),
+                },
+            );
+        }
+
+        let list = self.check_expr(&args[0]);
+        let elem_ty = match self.normalize_type(&list.ty) {
+            Type::List(elem) => *elem,
+            Type::Error => Type::Error,
+            other => {
+                self.diagnostics.error_code(
+                    span,
+                    DIAG_TYP_CALL_ARG_TYPE,
+                    format!("filter expects first argument List[T] but got {:?}", other),
+                );
+                Type::Error
+            }
+        };
+
+        let predicate_hint = Type::Func(vec![elem_ty.clone()], Box::new(Type::Bool));
+        let predicate = self.check_expr_with_expected(&args[1], Some(&predicate_hint));
+        match self.normalize_type(&predicate.ty) {
+            Type::Func(params, ret) => {
+                if params.len() != 1 {
+                    self.diagnostics.error_code(
+                        span,
+                        DIAG_TYP_CALL_ARG_TYPE,
+                        format!(
+                            "filter predicate expects one parameter, got {}",
+                            params.len()
+                        ),
+                    );
+                } else if !self.is_assignable(&params[0], &elem_ty) {
+                    self.diagnostics.error_code(
+                        span,
+                        DIAG_TYP_CALL_ARG_TYPE,
+                        format!(
+                            "filter predicate parameter expects {:?} but list has {:?}",
+                            params[0], elem_ty
+                        ),
+                    );
+                }
+                if !self.is_assignable(&Type::Bool, &ret) {
+                    self.diagnostics.error_code(
+                        span,
+                        DIAG_TYP_CALL_ARG_TYPE,
+                        format!("filter predicate must return Bool but got {:?}", ret),
+                    );
+                }
+            }
+            Type::Error => {}
+            other => {
+                self.diagnostics.error_code(
+                    span,
+                    DIAG_TYP_CALL_ARG_TYPE,
+                    format!(
+                        "filter expects second argument fn(T) -> Bool but got {:?}",
+                        other
+                    ),
+                );
+            }
+        }
+
+        self.mk_expr(
+            Type::List(Box::new(elem_ty)),
+            TirExprKind::ListFilter {
+                list: Box::new(list),
+                predicate: Box::new(predicate),
+            },
+        )
+    }
+
+    fn check_prelude_fold_call(&mut self, args: &[Expr], span: crate::span::Span) -> TirExpr {
+        if args.len() != 3 {
+            self.diagnostics.error_code(
+                span,
+                DIAG_TYP_CALL_ARG_COUNT,
+                format!("fold expects 3 arguments, got {}", args.len()),
+            );
+            let list = args
+                .first()
+                .map(|arg| self.check_expr(arg))
+                .unwrap_or_else(|| self.mk_expr(Type::Error, TirExprKind::Unit));
+            let initial = args
+                .get(1)
+                .map(|arg| self.check_expr(arg))
+                .unwrap_or_else(|| self.mk_expr(Type::Error, TirExprKind::Unit));
+            let reducer = args
+                .get(2)
+                .map(|arg| self.check_expr(arg))
+                .unwrap_or_else(|| self.mk_expr(Type::Error, TirExprKind::Unit));
+            return self.mk_expr(
+                Type::Error,
+                TirExprKind::ListFold {
+                    list: Box::new(list),
+                    initial: Box::new(initial),
+                    reducer: Box::new(reducer),
+                },
+            );
+        }
+
+        let list = self.check_expr(&args[0]);
+        let elem_ty = match self.normalize_type(&list.ty) {
+            Type::List(elem) => *elem,
+            Type::Error => Type::Error,
+            other => {
+                self.diagnostics.error_code(
+                    span,
+                    DIAG_TYP_CALL_ARG_TYPE,
+                    format!("fold expects first argument List[T] but got {:?}", other),
+                );
+                Type::Error
+            }
+        };
+        let initial = self.check_expr(&args[1]);
+        let acc_ty = initial.ty.clone();
+        let reducer_hint = Type::Func(
+            vec![acc_ty.clone(), elem_ty.clone()],
+            Box::new(acc_ty.clone()),
+        );
+        let reducer = self.check_expr_with_expected(&args[2], Some(&reducer_hint));
+        match self.normalize_type(&reducer.ty) {
+            Type::Func(params, ret) => {
+                if params.len() != 2 {
+                    self.diagnostics.error_code(
+                        span,
+                        DIAG_TYP_CALL_ARG_TYPE,
+                        format!("fold reducer expects two parameters, got {}", params.len()),
+                    );
+                } else {
+                    if !self.is_assignable(&params[0], &acc_ty) {
+                        self.diagnostics.error_code(
+                            span,
+                            DIAG_TYP_CALL_ARG_TYPE,
+                            format!(
+                                "fold reducer accumulator expects {:?} but initial value has {:?}",
+                                params[0], acc_ty
+                            ),
+                        );
+                    }
+                    if !self.is_assignable(&params[1], &elem_ty) {
+                        self.diagnostics.error_code(
+                            span,
+                            DIAG_TYP_CALL_ARG_TYPE,
+                            format!(
+                                "fold reducer item expects {:?} but list has {:?}",
+                                params[1], elem_ty
+                            ),
+                        );
+                    }
+                }
+                if !self.is_assignable(&acc_ty, &ret) {
+                    self.diagnostics.error_code(
+                        span,
+                        DIAG_TYP_CALL_ARG_TYPE,
+                        format!(
+                            "fold reducer must return accumulator type {:?} but got {:?}",
+                            acc_ty, ret
+                        ),
+                    );
+                }
+            }
+            Type::Error => {}
+            other => {
+                self.diagnostics.error_code(
+                    span,
+                    DIAG_TYP_CALL_ARG_TYPE,
+                    format!(
+                        "fold expects third argument fn(Acc, T) -> Acc but got {:?}",
+                        other
+                    ),
+                );
+            }
+        }
+
+        self.mk_expr(
+            acc_ty,
+            TirExprKind::ListFold {
+                list: Box::new(list),
+                initial: Box::new(initial),
+                reducer: Box::new(reducer),
             },
         )
     }

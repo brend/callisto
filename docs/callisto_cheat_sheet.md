@@ -80,7 +80,7 @@ type Shape =
 
 - Generic params use `[T, U]`.
 - `newtype Name = Inner` declares a nominal wrapper distinct from `Inner`.
-- `Option[T]`, `Some`, `None`, `List[T]`, `length`, and `map` are built-in prelude names.
+- `Option[T]`, `Some`, `None`, `List[T]`, `length`, `map`, `append`, `filter`, and `fold` are built-in prelude names.
 - Sum variants can be:
 - No payload: `Empty`
 - Positional payload: `Value(T)`
@@ -91,13 +91,18 @@ type Shape =
 ```cal
 let xs: List[Int] = [1, 2, 3]
 let empty: List[Int] = []
+let more = append(xs, 4)
+let first = more[1]
 let ys = map(xs, fn (x: Int) -> Int => x + 1)
+let large = filter(ys, fn (x: Int) -> Bool => x > 2)
+let total = fold(large, 0, fn (acc: Int, x: Int) -> Int => acc + x)
 length(ys)
 ```
 
 - `List[T]` emits as Lua array-style tables.
+- Indexing uses Lua-style 1-based table indexes.
 - `[]` requires expected `List[T]` context.
-- `map` is the helper form `map(list, fn)`.
+- Helpers use `helper(list, ...)` forms rather than methods.
 
 ### Externs
 

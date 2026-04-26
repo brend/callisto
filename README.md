@@ -10,7 +10,7 @@ Callisto is a statically-typed programming language that compiles to Lua. It bri
 - **Immutable/mutable bindings** — `let` for immutable, `var` for mutable
 - **Method syntax** — `impl` blocks for attaching methods to types
 - **Lambda expressions** — first-class functions with explicit types
-- **Standard prelude** — built-in `Option[T]`, `List[T]`, `length`, and `map`
+- **Standard prelude** — built-in `Option[T]`, `List[T]`, and core list helpers
 - **Record update syntax** — non-destructive field updates with `with`
 - **Parser ergonomics** — trailing commas in multiline lists and record field punning (`Point { x }`)
 - **Extern interop** — typed bindings to existing Lua APIs via `extern`
@@ -179,12 +179,14 @@ pub fn safe_div(a: Int, b: Int) -> Option[Int] {
 ```
 pub fn doubled_count() -> Int {
   let xs: List[Int] = [1, 2, 3]
-  let doubled = map(xs, fn (x: Int) -> Int => x * 2)
-  length(doubled)
+  let ys = append(xs, xs[1])
+  let large = filter(ys, fn (x: Int) -> Bool => x > 2)
+  let doubled = map(large, fn (x: Int) -> Int => x * 2)
+  fold(doubled, 0, fn (acc: Int, x: Int) -> Int => acc + x)
 }
 ```
 
-`List[T]` is backed by Lua array tables. Empty list literals such as `[]` require an expected `List[T]` type from an annotation, return type, field, or argument context.
+`List[T]` is backed by Lua array tables. Empty list literals such as `[]` require an expected `List[T]` type from an annotation, return type, field, or argument context. Indexing uses Lua-style 1-based table indexes.
 
 ### Extern interop
 

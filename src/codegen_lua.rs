@@ -303,6 +303,40 @@ impl<'a> LuaEmitter<'a> {
                     list, mapper
                 )
             }
+            TirExprKind::ListFilter { list, predicate } => {
+                let list = self.emit_expr(list, locals);
+                let predicate = self.emit_expr(predicate, locals);
+                format!(
+                    "(function(__list, __predicate) local __out = {{}}; for _, __v in ipairs(__list) do if __predicate(__v) then __out[#__out + 1] = __v end end; return __out end)({}, {})",
+                    list, predicate
+                )
+            }
+            TirExprKind::ListFold {
+                list,
+                initial,
+                reducer,
+            } => {
+                let list = self.emit_expr(list, locals);
+                let initial = self.emit_expr(initial, locals);
+                let reducer = self.emit_expr(reducer, locals);
+                format!(
+                    "(function(__list, __acc, __reducer) for _, __v in ipairs(__list) do __acc = __reducer(__acc, __v) end; return __acc end)({}, {}, {})",
+                    list, initial, reducer
+                )
+            }
+            TirExprKind::ListAppend { list, value } => {
+                let list = self.emit_expr(list, locals);
+                let value = self.emit_expr(value, locals);
+                format!(
+                    "(function(__list, __value) local __out = {{}}; for __i, __v in ipairs(__list) do __out[__i] = __v end; __out[#__out + 1] = __value; return __out end)({}, {})",
+                    list, value
+                )
+            }
+            TirExprKind::ListIndex { list, index } => {
+                let list = self.emit_expr(list, locals);
+                let index = self.emit_expr(index, locals);
+                format!("{}[{}]", list, index)
+            }
             TirExprKind::Field { base, field } => {
                 let base = self.emit_expr(base, locals);
                 format!("{}.{}", base, field)

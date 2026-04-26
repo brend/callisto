@@ -1048,6 +1048,20 @@ impl Parser {
                 continue;
             }
 
+            if self.eat(TokenKind::LBracket).is_some() {
+                let index = self.parse_expr();
+                self.expect(TokenKind::RBracket, "expected ']' after index expression");
+                let span = expr.span.merge(self.prev_span());
+                expr = self.mk_expr(
+                    span,
+                    ExprKind::Index {
+                        collection: Box::new(expr),
+                        index: Box::new(index),
+                    },
+                );
+                continue;
+            }
+
             break;
         }
 
