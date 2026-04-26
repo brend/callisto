@@ -2,6 +2,19 @@
 
 Callisto is a statically-typed programming language that compiles to Lua. It brings type safety, algebraic data types, and pattern matching to the Lua ecosystem while emitting clean, readable Lua code.
 
+```callisto
+module hello
+
+type Mood = | Ready | Waiting(String)
+
+pub fn cheer(mood: Mood) -> String {
+  match mood {
+    case Ready           => "Ship it"
+    case Waiting(reason) => "Almost there: ${reason}"
+  }
+}
+```
+
 ## Features
 
 - **Static type system** — primitives (`Int`, `Float`, `Bool`, `String`), record types, sum types, generics, and nominal `newtype` wrappers
