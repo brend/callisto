@@ -54,7 +54,19 @@ Playdate-first workflow:
 - `--starter-assets` adds starter directories: `Source/images`, `Source/sounds`, and `Source/fonts`.
 - `callisto build-playdate <entry.cal>` runs Lua emission with bootstrap + `pdc` in one command.
 
-## Configuration (v0.2)
+## Stable v1.0 Surface
+
+Callisto `1.0.0` is the stable Playdate-first typed Lua toolchain release. The stable surface includes:
+
+- Brace-delimited source syntax, with old `do`/`then`/`end` blocks rejected by migration diagnostics.
+- The prelude names `Option[T]`, `Some`, `None`, `List[T]`, `length`, `map`, `append`, `filter`, and `fold`.
+- CLI/config behavior for project config discovery, module roots, output precedence, Lua emission, and Playdate builds.
+- Stable `CAL-*` diagnostic codes for supported parser, resolver, typechecker, and config errors.
+- Readable, dependency-light emitted Lua intended for Playdate workflows.
+
+Known post-1.0 exclusions are package/dependency management, broad Lua ecosystem support beyond typed extern interop, method-style collection helpers, a full LSP implementation, and further large syntax redesigns.
+
+## Configuration
 
 `callisto.toml` is supported for project-level configuration.
 
@@ -75,7 +87,7 @@ Resolution precedence:
 - Module roots: CLI `--module-root` entries (in order) override config `module_roots`; if neither is provided, the entry file directory root is used.
 - Output directory: `-o` overrides config `out_dir`; config `out_dir` overrides default `out`.
 
-## Diagnostics (v0.2)
+## Diagnostics
 
 Compiler diagnostics include stable error codes for key config, resolve, and typecheck paths.
 
@@ -94,18 +106,17 @@ Match-analysis diagnostics include:
 - `CAL-TYP-023`: constructor-pattern payload shape errors (wrong payload form or constructor-pattern arity mismatch).
 - `CAL-TYP-024`: constructor-pattern record-field diagnostics (unknown/duplicate/missing fields with fix-it guidance).
 
-## v0.1 Scope (Baseline)
+## Baseline Compatibility
 
-Supported in `v0.1`:
+The original single-entry compiler behavior remains supported:
 - Single-entry compilation with recursive module loading from the entry directory root (`foo.bar` -> `foo/bar.luna|.cal` or `foo/bar/mod.luna|.cal`).
 - End-to-end compiler pipeline (`parse`, `check`, `emit-lua`/`build`) with diagnostics surfaced in CLI output.
 - Type checking for records, sums, pattern matching, aliases (transparent), and generic constructor inference for common ADT use.
 - Imports resolved via loaded modules or explicit `extern module` declarations.
 
-Known exclusions in `v0.1`:
-- No package/dependency manager. Configurable import roots were introduced later in `v0.2 M1`.
+Stable exclusions:
+- No package/dependency manager.
 - No implicit import/extern fallback: unresolved imported members are hard type errors.
-- No nominal alias/newtype behavior (aliases are transparent in assignability/unification).
 
 Expected CLI behavior:
 - `callisto parse <file>` prints AST or syntax diagnostics.
@@ -314,40 +325,10 @@ source → lexer → parser → AST → name resolution → type checking → TI
 
 See [`docs/luna_compiler_architecture_v0_1.md`](docs/luna_compiler_architecture_v0_1.md) for the full design.
 
-Recent release completion, active planning, and the path to `v1.0` are tracked in:
-- [`docs/roadmap_to_1_0.md`](docs/roadmap_to_1_0.md)
-- [`docs/v0_3_draft_plan.md`](docs/v0_3_draft_plan.md)
-- [`docs/v0_3_m4_release_checklist.md`](docs/v0_3_m4_release_checklist.md)
-- [`docs/v0_4_draft_plan.md`](docs/v0_4_draft_plan.md)
-- [`docs/v0_4_m0_scope_freeze_checklist.md`](docs/v0_4_m0_scope_freeze_checklist.md)
-- [`docs/v0_4_m1_sample_depth_execution_checklist.md`](docs/v0_4_m1_sample_depth_execution_checklist.md)
-- [`docs/v0_4_m2_parser_ergonomics_execution_checklist.md`](docs/v0_4_m2_parser_ergonomics_execution_checklist.md)
-- [`docs/v0_4_m3_type_inference_execution_checklist.md`](docs/v0_4_m3_type_inference_execution_checklist.md)
-- [`docs/v0_4_m4_release_checklist.md`](docs/v0_4_m4_release_checklist.md)
-- [`docs/v0_6_draft_plan.md`](docs/v0_6_draft_plan.md)
-- [`docs/v0_6_language_conformance_matrix.md`](docs/v0_6_language_conformance_matrix.md)
-- [`docs/v0_6_m0_scope_freeze_checklist.md`](docs/v0_6_m0_scope_freeze_checklist.md)
-- [`docs/v0_6_m1_nominal_types_execution_checklist.md`](docs/v0_6_m1_nominal_types_execution_checklist.md)
-- [`docs/v0_6_m2_match_analysis_execution_checklist.md`](docs/v0_6_m2_match_analysis_execution_checklist.md)
-- [`docs/v0_6_m3_pattern_conformance_execution_checklist.md`](docs/v0_6_m3_pattern_conformance_execution_checklist.md)
-- [`docs/v0_6_m4_release_checklist.md`](docs/v0_6_m4_release_checklist.md)
-- [`docs/v0_7_draft_plan.md`](docs/v0_7_draft_plan.md)
-- [`docs/v0_7_m0_scope_freeze_checklist.md`](docs/v0_7_m0_scope_freeze_checklist.md)
-- [`docs/v0_7_m1_option_prelude_execution_checklist.md`](docs/v0_7_m1_option_prelude_execution_checklist.md)
-- [`docs/v0_7_m2_list_helpers_execution_checklist.md`](docs/v0_7_m2_list_helpers_execution_checklist.md)
-- [`docs/v0_7_m3_workflow_reliability_execution_checklist.md`](docs/v0_7_m3_workflow_reliability_execution_checklist.md)
-- [`docs/v0_7_m4_release_checklist.md`](docs/v0_7_m4_release_checklist.md)
-- [`docs/v0_8_draft_plan.md`](docs/v0_8_draft_plan.md)
-- [`docs/v0_8_m0_scope_freeze_checklist.md`](docs/v0_8_m0_scope_freeze_checklist.md)
-- [`docs/v0_8_m1_parser_migration_checklist.md`](docs/v0_8_m1_parser_migration_checklist.md)
-- [`docs/v0_8_m2_docs_samples_templates_checklist.md`](docs/v0_8_m2_docs_samples_templates_checklist.md)
-- [`docs/v0_8_m3_editor_feedback_checklist.md`](docs/v0_8_m3_editor_feedback_checklist.md)
-- [`docs/v0_8_m4_release_checklist.md`](docs/v0_8_m4_release_checklist.md)
-- [`docs/v0_9_draft_plan.md`](docs/v0_9_draft_plan.md)
-- [`docs/v0_9_m0_scope_freeze_checklist.md`](docs/v0_9_m0_scope_freeze_checklist.md)
-- [`docs/v0_9_m1_conformance_freeze_checklist.md`](docs/v0_9_m1_conformance_freeze_checklist.md)
-- [`docs/v0_9_m2_lua_playdate_stabilization_checklist.md`](docs/v0_9_m2_lua_playdate_stabilization_checklist.md)
-- [`docs/v0_9_m3_docs_editor_drift_checklist.md`](docs/v0_9_m3_docs_editor_drift_checklist.md)
-- [`docs/v0_9_m4_release_checklist.md`](docs/v0_9_m4_release_checklist.md)
+Release status and stable-surface references:
+- [`CHANGELOG.md`](CHANGELOG.md)
 - [`docs/v1_0_language_conformance_matrix.md`](docs/v1_0_language_conformance_matrix.md)
 - [`docs/v1_0_readiness_checklist.md`](docs/v1_0_readiness_checklist.md)
+- [`docs/roadmap_to_1_0.md`](docs/roadmap_to_1_0.md)
+
+Historical release planning and milestone checklists remain in [`docs/`](docs/).

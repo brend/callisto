@@ -1,13 +1,11 @@
 module sum_match_generics
 
-type MaybeInt = | None | Some(Int)
-
 fn id[T](x: T) -> T {
   x
 }
 
 pub fn choose(flag: Bool, a: Int, b: Int) -> Int {
-  var picked: MaybeInt = Some(id(a))
+  var picked: Option[Int] = Some(id(a))
   if flag {
     picked = Some(id(a))
   } else {
