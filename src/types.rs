@@ -27,6 +27,7 @@ pub enum Type {
     Unit,
 
     Named(TypeId, Vec<Type>),
+    List(Box<Type>),
     Func(Vec<Type>, Box<Type>),
 
     Param(TypeParamId),
@@ -109,6 +110,7 @@ impl Type {
                         .zip(rhs_args)
                         .all(|(lhs, rhs)| lhs.is_assignable_from(rhs))
             }
+            (Type::List(lhs), Type::List(rhs)) => lhs.is_assignable_from(rhs),
             (Type::Func(lhs_p, lhs_r), Type::Func(rhs_p, rhs_r)) => {
                 lhs_p.len() == rhs_p.len()
                     && lhs_p

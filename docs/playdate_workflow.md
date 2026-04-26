@@ -173,6 +173,8 @@ The Playdate Simulator has a "Reload Game" hotkey (`⌘R`) — combine with fswa
 - `playdate_auto_bootstrap/`: auto-shim pattern using `--playdate-bootstrap`.
   Includes explicit-transition scene navigation (`A` next, `B` previous), persisted mission-loop counters/resources (`score`, `combo`, `laps`, `energy`, `heat`), crank telemetry labels, `playdate.timer.updateTimers()` usage, and graphics overlays driven by shared `playdate.graphics.drawLine/drawRect/fillRect` bindings.
 
+Current projects can use the standard prelude directly. `Option[T]`, `Some`, `None`, `List[T]`, `length`, and `map` do not require local type declarations or imports; `List[T]` emits as Lua array-style tables.
+
 ## What to Build Next (Priority Order)
 
 1. **Expand SDK coverage** — Add shared bindings for the next concrete APIs needed by samples.
@@ -186,5 +188,6 @@ The Playdate Simulator has a "Reload Game" hotkey (`⌘R`) — combine with fswa
 
 - `make run` opens a game in the Playdate Simulator without errors
 - Type errors in `.cal` are caught before `pdc` ever runs
+- `build-playdate` failure messages include the `pdc` executable, generated source directory, and target `.pdx` path
 - SDK calls like `playdate.graphics.clear()` appear verbatim in emitted Lua
 - `cargo test` continues to pass after any compiler changes

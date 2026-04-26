@@ -25,6 +25,7 @@ const DIAG_TYP_CONSTRUCTOR_PAYLOAD: &str = "CAL-TYP-021";
 const DIAG_TYP_CONSTRUCTOR_INFER: &str = "CAL-TYP-022";
 const DIAG_TYP_CONSTRUCTOR_PATTERN_PAYLOAD: &str = "CAL-TYP-023";
 const DIAG_TYP_PATTERN_RECORD_FIELDS: &str = "CAL-TYP-024";
+const DIAG_TYP_LIST_LITERAL: &str = "CAL-TYP-025";
 const DIAG_TYP_NON_EXHAUSTIVE_MATCH: &str = "CAL-TYP-030";
 const DIAG_TYP_DUPLICATE_MATCH_ARM: &str = "CAL-TYP-031";
 const DIAG_TYP_UNREACHABLE_MATCH_ARM: &str = "CAL-TYP-032";
@@ -375,6 +376,9 @@ impl<'a> Checker<'a> {
             ExprKind::Constructor { name, payload } => {
                 self.check_constructor_expr(name, payload, expr.span, expected)
             }
+            ExprKind::ListLiteral(items) => {
+                self.check_list_literal_expr(items, expr.span, expected)
+            }
             ExprKind::Lambda {
                 params,
                 ret_ty,
@@ -501,6 +505,14 @@ impl<'a> Checker<'a> {
         args: &[Expr],
         span: crate::span::Span,
     ) -> TirExpr {
+        if let ExprKind::Var(name) = &callee.kind {
+            match name.as_str() {
+                "length" => return self.check_prelude_length_call(args, span),
+                "map" => return self.check_prelude_map_call(args, span),
+                _ => {}
+            }
+        }
+
         let callee_tir = self.check_expr(callee);
         let hint_params = match &callee_tir.ty {
             Type::Func(params, _) => Some(params.clone()),
@@ -604,6 +616,121 @@ impl<'a> Checker<'a> {
                 )
             }
         }
+    }
+
+    fn check_prelude_length_call(&mut self, args: &[Expr], span: crate::span::Span) -> TirExpr {
+        if args.len() != 1 {
+            self.diagnostics.error_code(
+                span,
+                DIAG_TYP_CALL_ARG_COUNT,
+                format!("length expects 1 argument, got {}", args.len()),
+            );
+            let list = args
+                .first()
+                .map(|arg| self.check_expr(arg))
+                .unwrap_or_else(|| self.mk_expr(Type::Error, TirExprKind::Unit));
+            return self.mk_expr(
+                Type::Error,
+                TirExprKind::ListLength {
+                    list: Box::new(list),
+                },
+            );
+        }
+
+        let list = self.check_expr(&args[0]);
+        if !matches!(self.normalize_type(&list.ty), Type::List(_) | Type::Error) {
+            self.diagnostics.error_code(
+                span,
+                DIAG_TYP_CALL_ARG_TYPE,
+                format!("length expects List[T] but got {:?}", list.ty),
+            );
+        }
+        self.mk_expr(
+            Type::Int,
+            TirExprKind::ListLength {
+                list: Box::new(list),
+            },
+        )
+    }
+
+    fn check_prelude_map_call(&mut self, args: &[Expr], span: crate::span::Span) -> TirExpr {
+        if args.len() != 2 {
+            self.diagnostics.error_code(
+                span,
+                DIAG_TYP_CALL_ARG_COUNT,
+                format!("map expects 2 arguments, got {}", args.len()),
+            );
+            let list = args
+                .first()
+                .map(|arg| self.check_expr(arg))
+                .unwrap_or_else(|| self.mk_expr(Type::Error, TirExprKind::Unit));
+            let mapper = args
+                .get(1)
+                .map(|arg| self.check_expr(arg))
+                .unwrap_or_else(|| self.mk_expr(Type::Error, TirExprKind::Unit));
+            return self.mk_expr(
+                Type::Error,
+                TirExprKind::ListMap {
+                    list: Box::new(list),
+                    mapper: Box::new(mapper),
+                },
+            );
+        }
+
+        let list = self.check_expr(&args[0]);
+        let elem_ty = match self.normalize_type(&list.ty) {
+            Type::List(elem) => *elem,
+            Type::Error => Type::Error,
+            other => {
+                self.diagnostics.error_code(
+                    span,
+                    DIAG_TYP_CALL_ARG_TYPE,
+                    format!("map expects first argument List[T] but got {:?}", other),
+                );
+                Type::Error
+            }
+        };
+
+        let mapper_hint = Type::Func(vec![elem_ty.clone()], Box::new(Type::Error));
+        let mapper = self.check_expr_with_expected(&args[1], Some(&mapper_hint));
+        let ret_ty = match self.normalize_type(&mapper.ty) {
+            Type::Func(params, ret) => {
+                if params.len() != 1 {
+                    self.diagnostics.error_code(
+                        span,
+                        DIAG_TYP_CALL_ARG_TYPE,
+                        format!("map mapper expects one parameter, got {}", params.len()),
+                    );
+                } else if !self.is_assignable(&params[0], &elem_ty) {
+                    self.diagnostics.error_code(
+                        span,
+                        DIAG_TYP_CALL_ARG_TYPE,
+                        format!(
+                            "map mapper parameter expects {:?} but list has {:?}",
+                            params[0], elem_ty
+                        ),
+                    );
+                }
+                *ret
+            }
+            Type::Error => Type::Error,
+            other => {
+                self.diagnostics.error_code(
+                    span,
+                    DIAG_TYP_CALL_ARG_TYPE,
+                    format!("map expects second argument fn(T) -> U but got {:?}", other),
+                );
+                Type::Error
+            }
+        };
+
+        self.mk_expr(
+            Type::List(Box::new(ret_ty)),
+            TirExprKind::ListMap {
+                list: Box::new(list),
+                mapper: Box::new(mapper),
+            },
+        )
     }
 
     fn check_field_expr(
@@ -1080,6 +1207,83 @@ impl<'a> Checker<'a> {
                 scrutinee: Box::new(scrutinee_tir),
                 arms: tir_arms,
             },
+        )
+    }
+
+    fn check_list_literal_expr(
+        &mut self,
+        items: &[Expr],
+        span: crate::span::Span,
+        expected: Option<&Type>,
+    ) -> TirExpr {
+        let expected_elem = match expected.map(|ty| self.normalize_type(ty)) {
+            Some(Type::List(elem)) => Some(*elem),
+            Some(Type::Error) | None => None,
+            Some(other) => {
+                self.diagnostics.error_code(
+                    span,
+                    DIAG_TYP_LIST_LITERAL,
+                    format!(
+                        "list literal requires expected List[T] context, found {:?}",
+                        other
+                    ),
+                );
+                None
+            }
+        };
+
+        if items.is_empty() {
+            let Some(elem_ty) = expected_elem else {
+                self.diagnostics.error_code(
+                    span,
+                    DIAG_TYP_LIST_LITERAL,
+                    "cannot infer type of empty list literal without expected List[T] context",
+                );
+                return self.mk_expr(
+                    Type::List(Box::new(Type::Error)),
+                    TirExprKind::ListLiteral(Vec::new()),
+                );
+            };
+            return self.mk_expr(
+                Type::List(Box::new(elem_ty)),
+                TirExprKind::ListLiteral(Vec::new()),
+            );
+        }
+
+        let mut values = Vec::new();
+        let mut elem_ty = expected_elem.clone();
+        for item in items {
+            let checked = if let Some(expected) = &expected_elem {
+                self.check_expr_with_expected(item, Some(expected))
+            } else {
+                self.check_expr(item)
+            };
+            elem_ty = Some(self.unify_branch_type(
+                elem_ty,
+                checked.ty.clone(),
+                item.span,
+                "list literal element",
+            ));
+            values.push(checked);
+        }
+
+        let elem_ty = elem_ty.unwrap_or(Type::Error);
+        if let Some(expected) = expected_elem
+            && !self.is_assignable(&expected, &elem_ty)
+        {
+            self.diagnostics.error_code(
+                span,
+                DIAG_TYP_LIST_LITERAL,
+                format!(
+                    "list literal has element type {:?} but expected {:?}",
+                    elem_ty, expected
+                ),
+            );
+        }
+
+        self.mk_expr(
+            Type::List(Box::new(elem_ty)),
+            TirExprKind::ListLiteral(values),
         )
     }
 
@@ -2264,6 +2468,9 @@ impl<'a> Checker<'a> {
                     .collect(),
                 Box::new(self.normalize_type_with_depth(ret, depth + 1)),
             ),
+            Type::List(elem) => {
+                Type::List(Box::new(self.normalize_type_with_depth(elem, depth + 1)))
+            }
             Type::ForeignNullable(inner) => {
                 Type::ForeignNullable(Box::new(self.normalize_type_with_depth(inner, depth + 1)))
             }
@@ -2317,6 +2524,16 @@ impl<'a> Checker<'a> {
             TypeExprKind::Named { name, args } => {
                 if let Some(param) = self.current_type_params.get(name).copied() {
                     return Type::Param(param);
+                }
+                if name == "List" {
+                    if args.len() != 1 {
+                        self.diagnostics.error(
+                            expr.span,
+                            "builtin type 'List' requires exactly one type argument",
+                        );
+                        return Type::List(Box::new(Type::Error));
+                    }
+                    return Type::List(Box::new(self.lower_type_expr(&args[0], extern_ctx)));
                 }
                 if let Some(ty) = builtin_type(name) {
                     return ty;
@@ -2703,6 +2920,11 @@ fn infer_type_params(expected: &Type, actual: &Type, subst: &mut HashMap<TypePar
                 infer_type_params(expected_ret, actual_ret, subst);
             }
         }
+        Type::List(expected_elem) => {
+            if let Type::List(actual_elem) = actual {
+                infer_type_params(expected_elem, actual_elem, subst);
+            }
+        }
         Type::ForeignNullable(expected_inner) => {
             if let Type::ForeignNullable(actual_inner) = actual {
                 infer_type_params(expected_inner, actual_inner, subst);
@@ -2728,6 +2950,7 @@ fn substitute_type_params(ty: &Type, subst: &HashMap<TypeParamId, Type>) -> Type
                 .collect(),
             Box::new(substitute_type_params(ret, subst)),
         ),
+        Type::List(elem) => Type::List(Box::new(substitute_type_params(elem, subst))),
         Type::ForeignNullable(inner) => {
             Type::ForeignNullable(Box::new(substitute_type_params(inner, subst)))
         }

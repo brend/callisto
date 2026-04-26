@@ -21,12 +21,11 @@ type Ball {
 
 type ControlMode = | Crank | Buttons
 type Sfx = | Bounce
-type Maybe[T] = | None | Some(T)
-type StepResult = | Continue(Ball, Maybe[Sfx]) | Reset
+type StepResult = | Continue(Ball, Option[Sfx]) | Reset
 
 type Integrated {
   ball: Ball,
-  sfx: Maybe[Sfx],
+  sfx: Option[Sfx],
 }
 
 impl Ball do
@@ -39,7 +38,7 @@ fn spawn_ball() -> Ball do
   Ball { x = 200, y = 120, vx = 3, vy = 0 }
 end
 
-fn unwrap_or[T](value: Maybe[T], fallback: T) -> T do
+fn unwrap_or[T](value: Option[T], fallback: T) -> T do
   match value do
     case Some(v) => v
     case None => fallback
@@ -127,14 +126,14 @@ fn sfx_code(sfx: Sfx) -> SfxCode do
   end
 end
 
-fn maybe_sfx_code(effect: Maybe[Sfx]) -> Maybe[SfxCode] do
+fn maybe_sfx_code(effect: Option[Sfx]) -> Option[SfxCode] do
   match effect do
     case Some(value) => Some(sfx_code(value))
     case None => None
   end
 end
 
-fn detect_bounce_sfx(next_vx: Int, prior_vx: Int, next_vy: Int, target_vy: Int) -> Maybe[Sfx] do
+fn detect_bounce_sfx(next_vx: Int, prior_vx: Int, next_vy: Int, target_vy: Int) -> Option[Sfx] do
   if next_vx != prior_vx then
     Some(Bounce)
   elseif next_vy != target_vy then
@@ -144,7 +143,7 @@ fn detect_bounce_sfx(next_vx: Int, prior_vx: Int, next_vy: Int, target_vy: Int) 
   end
 end
 
-fn play_sfx(effect: Maybe[Sfx]) -> Unit do
+fn play_sfx(effect: Option[Sfx]) -> Unit do
   let code = unwrap_or(maybe_sfx_code(effect), SfxCode(0))
   if code == SfxCode(1) then
     audio.bounce_blip()

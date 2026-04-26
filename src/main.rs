@@ -546,15 +546,22 @@ fn build_playdate_command_with_bootstrap_options(
         Ok(status) => status,
         Err(err) => {
             eprintln!("failed to execute '{}': {}", pdc_exe, err);
+            eprintln!(
+                "build-playdate source directory: {}; output bundle: {}",
+                out_dir.display(),
+                pdx_path.display()
+            );
             eprintln!("install the Playdate SDK or pass --pdc <path-to-pdc> for build-playdate");
             return Err(2);
         }
     };
     if !status.success() {
         eprintln!(
-            "Playdate build failed: '{}' returned exit code {:?}",
+            "Playdate build failed: '{}' returned exit code {:?} while compiling '{}' to '{}'",
             pdc_exe,
-            status.code()
+            status.code(),
+            out_dir.display(),
+            pdx_path.display()
         );
         return Err(1);
     }
@@ -1770,15 +1777,15 @@ mod tests {
     fn full_pipeline_compiles_and_emits_lua_for_feature_rich_module() {
         let source = r#"
 type Point { x: Int, y: Int }
-type MaybeInt = | None | Some(Int)
+type MaybeInt = | Missing | Present(Int)
 
 impl MaybeInt do
-fn unwrap_or(self: MaybeInt, fallback: Int) -> Int do
+  fn unwrap_or(self: MaybeInt, fallback: Int) -> Int do
 match self do
-case Some(v) => v
-case None => fallback
+case Present(v) => v
+case Missing => fallback
 end
-end
+  end
 end
 
 fn add(a: Int, b: Int) -> Int do
@@ -1797,7 +1804,7 @@ for i in 0..1 do
 total = total + i
 end
 let inc = fn (x: Int) -> Int => x + 1
-let m = Some(inc(total))
+let m = Present(inc(total))
 m.unwrap_or(0)
 end
 "#;
@@ -2072,11 +2079,11 @@ end
     fn constructor_arity_and_record_fields_are_validated() {
         let source = r#"
 type Point { x: Int, y: Int }
-type MaybeInt = | None | Some(Int)
+type MaybeInt = | Missing | Present(Int)
 
 fn main() -> Int do
 let p = Point { z = 1 }
-let m = Some(1, 2)
+let m = Present(1, 2)
 p.x
 end
 "#;
@@ -2103,18 +2110,18 @@ end
             d.message.contains("constructor argument count mismatch")
                 && d.notes
                     .iter()
-                    .any(|(_, note)| note.contains("try `Some(arg1)`"))
+                    .any(|(_, note)| note.contains("try `Present(arg1)`"))
         }));
     }
 
     #[test]
     fn reports_non_exhaustive_match_for_sum_types() {
         let source = r#"
-type MaybeInt = | None | Some(Int)
+type MaybeInt = | Missing | Present(Int)
 
 fn unwrap(m: MaybeInt) -> Int do
 match m do
-case Some(v) => v
+case Present(v) => v
 end
 end
 "#;
@@ -2138,13 +2145,13 @@ end
     #[test]
     fn reports_duplicate_constructor_match_arm() {
         let source = r#"
-type MaybeInt = | None | Some(Int)
+type MaybeInt = | Missing | Present(Int)
 
 fn main(m: MaybeInt) -> Int do
   match m do
-    case Some(x) => x
-    case Some(_) => 0
-    case None => 0
+    case Present(x) => x
+    case Present(_) => 0
+    case Missing => 0
   end
 end
 "#;
@@ -2252,13 +2259,13 @@ end
     #[test]
     fn complete_sum_match_flags_following_arm_as_unreachable_without_duplicate_cascade() {
         let source = r#"
-type MaybeInt = | None | Some(Int)
+type MaybeInt = | Missing | Present(Int)
 
 fn main(m: MaybeInt) -> Int do
   match m do
-    case Some(_) => 1
-    case None => 0
-    case Some(x) => x
+    case Present(_) => 1
+    case Missing => 0
+    case Present(x) => x
   end
 end
 "#;
@@ -3761,19 +3768,16 @@ end
         )
         .expect("failed to write core");
 
-        emit_lua_command_with_overrides(
-            &entry,
-            Some(out_dir.as_path()),
-            None,
-            &[],
-            false,
-        )
-        .expect("emit failed");
+        emit_lua_command_with_overrides(&entry, Some(out_dir.as_path()), None, &[], false)
+            .expect("emit failed");
 
         let game_lua = out_dir.join("game.lua");
         let game_text = std::fs::read_to_string(&game_lua).expect("read game lua");
         assert!(game_text.contains("pcall(import, \"core\")"), "{game_text}");
-        assert!(game_text.contains("core = core or __import_mod_0"), "{game_text}");
+        assert!(
+            game_text.contains("core = core or __import_mod_0"),
+            "{game_text}"
+        );
         assert!(game_text.contains("core.next_frame()"), "{game_text}");
 
         let _ = std::fs::remove_dir_all(root);
@@ -3782,12 +3786,12 @@ end
     #[test]
     fn nullary_constructor_pattern_is_not_lowered_as_bind() {
         let source = r#"
-type MaybeInt = | None | Some(Int)
+type MaybeInt = | Missing | Present(Int)
 
 fn pick(m: MaybeInt) -> Int do
 match m do
-case None => 0
-case Some(v) => v
+case Missing => 0
+case Present(v) => v
 end
 end
 "#;
@@ -3802,23 +3806,23 @@ end
         assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
 
         let lua = codegen_lua::emit_lua_module(&tir, &resolved);
-        assert!(lua.contains("__scrutinee.tag == \"None\""), "{lua}");
+        assert!(lua.contains("__scrutinee.tag == \"Missing\""), "{lua}");
     }
 
     #[test]
     fn parses_multiline_and_single_line_sum_declarations() {
         let source = r#"
-type Option[T] =
-  | None
-  | Some(T)
+type Maybe[T] =
+  | Missing
+  | Present(T)
 
 type Status = | Idle | Busy
 
-fn choose(flag: Bool) -> Option[Int] do
+fn choose(flag: Bool) -> Maybe[Int] do
   if flag then
-    Some(1)
+    Present(1)
   else
-    None
+    Missing
   end
 end
 
@@ -3840,9 +3844,9 @@ end
     #[test]
     fn parser_accepts_trailing_commas_and_record_field_punning() {
         let source = r#"
-type Option[T,] =
-  | None
-  | Some(T,)
+type Maybe[T,] =
+  | Missing
+  | Present(T,)
 
 type Point {
   x: Int,
@@ -3856,10 +3860,10 @@ fn add(
   a + b
 end
 
-fn from_opt(v: Option[Int]) -> Int do
+fn from_opt(v: Maybe[Int]) -> Int do
   match v do
-    case Some(x,) => x,
-    case None => 0,
+    case Present(x,) => x,
+    case Missing => 0,
   end
 end
 
@@ -3872,9 +3876,9 @@ fn main(x: Int) -> Int do
     x,
     y = base,
   }
-  match Some(p.x) do
-    case Some(v,) => v,
-    case None => 0,
+  match Present(p.x) do
+    case Present(v,) => v,
+    case Missing => 0,
   end
 end
 "#;
@@ -3887,6 +3891,179 @@ end
         assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
         let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
         assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+    }
+
+    #[test]
+    fn prelude_option_is_available_without_local_declaration() {
+        let source = r#"
+fn choose(flag: Bool) -> Option[Int] do
+  if flag then
+    Some(1)
+  else
+    None
+  end
+end
+
+fn main(flag: Bool) -> Int do
+  match choose(flag) do
+    case Some(v) => v
+    case None => 0
+  end
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (tir, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+
+        let lua = codegen_lua::emit_lua_module(&tir, &resolved);
+        assert!(lua.contains("tag = \"Some\""), "{lua}");
+        assert!(lua.contains("tag = \"None\""), "{lua}");
+    }
+
+    #[test]
+    fn reserved_prelude_names_are_rejected() {
+        let source = r#"
+type Option[T] = | Empty
+type Maybe = | Some(Int)
+fn map(x: Int) -> Int do
+  x
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (_, resolve_diags) = resolve::resolve(&ast);
+        assert!(resolve_diags.has_errors());
+        assert_eq!(
+            resolve_diags
+                .items
+                .iter()
+                .filter(|d| d.code.as_deref() == Some("CAL-RES-070"))
+                .count(),
+            3
+        );
+    }
+
+    #[test]
+    fn list_literals_length_and_map_compile_to_lua_arrays() {
+        let source = r#"
+fn main() -> Int do
+  let xs: List[Int] = [1, 2, 3]
+  let ys = map(xs, fn (x: Int) -> Int => x + 1)
+  length(ys)
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (tir, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+
+        let lua = codegen_lua::emit_lua_module(&tir, &resolved);
+        assert!(lua.contains("{ 1, 2, 3 }"), "{lua}");
+        assert!(lua.contains("ipairs(__list)"), "{lua}");
+        assert!(lua.contains("return #"), "{lua}");
+    }
+
+    #[test]
+    fn empty_list_literals_require_context() {
+        let ok_source = r#"
+fn main() -> Int do
+  let xs: List[Int] = []
+  length(xs)
+end
+"#;
+        let (tokens, lex_diags) = lexer::lex(0, ok_source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(!type_diags.has_errors(), "{:?}", type_diags.items);
+
+        let err_source = r#"
+fn main() -> Unit do
+  let xs = []
+  ()
+end
+"#;
+        let (tokens, lex_diags) = lexer::lex(0, err_source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.items.iter().any(|d| {
+            d.code.as_deref() == Some("CAL-TYP-025")
+                && d.message
+                    .contains("cannot infer type of empty list literal")
+        }));
+    }
+
+    #[test]
+    fn list_literal_rejects_incompatible_elements() {
+        let source = r#"
+fn main() -> Unit do
+  let xs = [1, true]
+  ()
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.message
+                .contains("incompatible list literal element types")
+        }));
+    }
+
+    #[test]
+    fn list_helpers_report_arity_and_argument_errors() {
+        let source = r#"
+fn main() -> Unit do
+  let xs: List[Int] = [1]
+  let a = length(xs, xs)
+  let b = map(1, fn (x: Int) -> Int => x)
+  ()
+end
+"#;
+
+        let (tokens, lex_diags) = lexer::lex(0, source);
+        assert!(!lex_diags.has_errors(), "{:?}", lex_diags.items);
+        let (ast, parse_diags) = parser::parse(tokens);
+        assert!(!parse_diags.has_errors(), "{:?}", parse_diags.items);
+        let (resolved, resolve_diags) = resolve::resolve(&ast);
+        assert!(!resolve_diags.has_errors(), "{:?}", resolve_diags.items);
+        let (_, type_diags) = typecheck::typecheck_and_lower(&resolved);
+        assert!(type_diags.has_errors());
+        assert!(type_diags.items.iter().any(|d| {
+            d.code.as_deref() == Some("CAL-TYP-011")
+                && d.message.contains("length expects 1 argument")
+        }));
+        assert!(type_diags.items.iter().any(|d| {
+            d.code.as_deref() == Some("CAL-TYP-012")
+                && d.message.contains("map expects first argument List[T]")
+        }));
     }
 
     #[test]
@@ -3966,7 +4143,7 @@ end
     #[test]
     fn malformed_multiline_sum_reports_parser_error() {
         let source = r#"
-type Option[T] =
+type Maybe[T] =
   |
 
 fn main() -> Int do
@@ -4102,10 +4279,10 @@ end
     #[test]
     fn constructor_payload_shape_mismatch_is_reported() {
         let source = r#"
-type MaybeInt = | None | Some(Int)
+type MaybeInt = | Missing | Present(Int)
 
 fn main() -> Int do
-let x = None(1)
+let x = Missing(1)
 0
 end
 "#;
@@ -4431,7 +4608,6 @@ end
     #[test]
     fn generic_sum_and_record_constructors_infer_type_arguments() {
         let source = r#"
-type Option[T] = | None | Some(T)
 type Box[T] { value: T }
 
 fn opt() -> Option[Int] do
@@ -4473,8 +4649,6 @@ end
     #[test]
     fn nullary_generic_constructor_uses_expected_context() {
         let source = r#"
-type Option[T] = | None | Some(T)
-
 fn takes(v: Option[Int]) -> Int do
   match v do
     case Some(x) => x
@@ -4501,7 +4675,6 @@ end
     #[test]
     fn nullary_generic_constructor_infers_in_record_initializer_field_context() {
         let source = r#"
-type Option[T] = | None | Some(T)
 type Wrapper { value: Option[Int] }
 
 fn make() -> Wrapper do
@@ -4529,7 +4702,6 @@ end
     #[test]
     fn nullary_generic_constructor_infers_in_constructor_payload_context() {
         let source = r#"
-type Option[T] = | None | Some(T)
 type Wrapped = | Wrapped(Option[Int])
 
 fn make() -> Wrapped do
@@ -4557,7 +4729,6 @@ end
     #[test]
     fn nullary_generic_constructor_infers_in_record_update_field_context() {
         let source = r#"
-type Option[T] = | None | Some(T)
 type State { value: Option[Int] }
 
 fn clear(s: State) -> State do
@@ -4578,8 +4749,6 @@ end
     #[test]
     fn unconstrained_nullary_generic_constructor_reports_error() {
         let source = r#"
-type Option[T] = | None | Some(T)
-
 fn main() -> Unit do
   let x = None
   ()
@@ -4635,7 +4804,6 @@ end
 type Distance = Int
 type Flag = Bool
 type Id[T] = T
-type Option[T] = | None | Some(T)
 type IntOpt = Option[Int]
 
 fn choose(flag: Flag) -> Id[Int] do
@@ -4908,8 +5076,6 @@ end
     #[test]
     fn reports_non_exhaustive_match_for_generic_sum_types() {
         let source = r#"
-type Option[T] = | None | Some(T)
-
 fn unwrap(v: Option[Int]) -> Int do
   match v do
     case Some(x) => x
@@ -4934,10 +5100,10 @@ end
     #[test]
     fn diagnostics_golden_constructor_payload_note() {
         let source = r#"
-type MaybeInt = | None | Some(Int)
+type MaybeInt = | Missing | Present(Int)
 
 fn main() -> Int do
-  let x = None(1)
+  let x = Missing(1)
   0
 end
 "#;
@@ -5035,11 +5201,11 @@ end
     #[test]
     fn diagnostics_golden_non_exhaustive_match() {
         let source = r#"
-type MaybeInt = | None | Some(Int)
+type MaybeInt = | Missing | Present(Int)
 
 fn unwrap(m: MaybeInt) -> Int do
   match m do
-    case Some(v) => v
+    case Present(v) => v
   end
 end
 "#;
@@ -5069,13 +5235,13 @@ end
     #[test]
     fn diagnostics_golden_duplicate_constructor_match_arm() {
         let source = r#"
-type MaybeInt = | None | Some(Int)
+type MaybeInt = | Missing | Present(Int)
 
 fn main(m: MaybeInt) -> Int do
   match m do
-    case Some(v) => v
-    case Some(_) => 0
-    case None => 0
+    case Present(v) => v
+    case Present(_) => 0
+    case Missing => 0
   end
 end
 "#;
@@ -5171,12 +5337,12 @@ end
     #[test]
     fn lua_golden_sum_match() {
         let source = r#"
-type MaybeInt = | None | Some(Int)
+type MaybeInt = | Missing | Present(Int)
 
 fn pick(m: MaybeInt) -> Int do
   match m do
-    case Some(v) => v
-    case None => 0
+    case Present(v) => v
+    case Missing => 0
   end
 end
 "#;

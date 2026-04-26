@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- `v0.7` planning docs and milestone checklists for the core prelude and workflow reliability release.
+- Standard prelude support for built-in `Option[T]`, `Some(T)`, `None`, and `List[T]`.
+- List literals backed by Lua array tables, including contextual empty-list literals.
+- Prelude helpers `length(list)` and `map(list, fn)` with direct Lua lowering.
+- Regression coverage for prelude `Option`, reserved prelude names, list literals, empty-list inference, and `length`/`map` codegen.
+
+### Changed
+- `Option`, `Some`, `None`, `List`, `length`, and `map` are reserved prelude names and cannot be redeclared.
+- README, cheat sheet, and Playdate workflow docs now describe the v0.7 prelude surface.
+- `build-playdate` failure messages now include the generated source directory and target `.pdx` path when `pdc` fails.
+
 ## [0.6.1] - 2026-04-15
 
 ### Added

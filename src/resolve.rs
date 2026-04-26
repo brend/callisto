@@ -24,6 +24,9 @@ const DIAG_RES_BUILTIN_TYPE_ARGS: &str = "CAL-RES-050";
 const DIAG_RES_UNKNOWN_TYPE: &str = "CAL-RES-051";
 const DIAG_RES_NULLABLE_OUTSIDE_EXTERN: &str = "CAL-RES-060";
 const DIAG_RES_NIL_OUTSIDE_EXTERN: &str = "CAL-RES-061";
+const DIAG_RES_RESERVED_PRELUDE_NAME: &str = "CAL-RES-070";
+
+const PRELUDE_RESERVED_NAMES: &[&str] = &["Option", "Some", "None", "List", "length", "map"];
 
 #[derive(Debug, Clone)]
 pub struct ResolvedModule {
@@ -70,6 +73,7 @@ struct Ctx {
 
 pub fn resolve(module: &Module) -> (ResolvedModule, Diagnostics) {
     let mut ctx = Ctx::default();
+    ctx.seed_prelude();
     ctx.collect_declarations(module);
     ctx.resolve_type_decls();
     ctx.resolve_functions();
@@ -91,11 +95,49 @@ pub fn resolve(module: &Module) -> (ResolvedModule, Diagnostics) {
 }
 
 impl Ctx {
+    fn seed_prelude(&mut self) {
+        let option_type = self.alloc_type_id();
+        let option_param = self.alloc_type_param_id();
+        let none_variant = self.alloc_variant_id();
+        let some_variant = self.alloc_variant_id();
+
+        self.type_names.insert("Option".to_string(), option_type);
+        self.variant_names.insert("None".to_string(), none_variant);
+        self.variant_names.insert("Some".to_string(), some_variant);
+        self.variant_to_type.insert(none_variant, option_type);
+        self.variant_to_type.insert(some_variant, option_type);
+        self.type_infos.push(TypeInfo {
+            name: "Option".to_string(),
+            vis: crate::ast::Visibility::Public,
+            params: vec![option_param],
+            kind: TypeKind::Sum(vec![
+                VariantInfo {
+                    id: none_variant,
+                    name: "None".to_string(),
+                    payload: VariantPayload::None,
+                },
+                VariantInfo {
+                    id: some_variant,
+                    name: "Some".to_string(),
+                    payload: VariantPayload::Positional(vec![Type::Param(option_param)]),
+                },
+            ]),
+        });
+    }
+
     fn collect_declarations(&mut self, module: &Module) {
         self.collect_imports(module);
         for decl in &module.decls {
             match decl {
                 TopDecl::Type(type_decl) => {
+                    if is_reserved_prelude_name(&type_decl.name) {
+                        self.diagnostics.error_code(
+                            type_decl.span,
+                            DIAG_RES_RESERVED_PRELUDE_NAME,
+                            format!("'{}' is reserved by the standard prelude", type_decl.name),
+                        );
+                        continue;
+                    }
                     let type_id = self.alloc_type_id();
                     if self
                         .type_names
@@ -117,6 +159,14 @@ impl Ctx {
                     self.pending_types.push((type_id, type_decl.clone()));
                 }
                 TopDecl::ExternType(extern_type) => {
+                    if is_reserved_prelude_name(&extern_type.name) {
+                        self.diagnostics.error_code(
+                            extern_type.span,
+                            DIAG_RES_RESERVED_PRELUDE_NAME,
+                            format!("'{}' is reserved by the standard prelude", extern_type.name),
+                        );
+                        continue;
+                    }
                     let type_id = self.alloc_type_id();
                     if self
                         .type_names
@@ -137,6 +187,14 @@ impl Ctx {
                     });
                 }
                 TopDecl::Func(func_decl) => {
+                    if is_reserved_prelude_name(&func_decl.name) {
+                        self.diagnostics.error_code(
+                            func_decl.span,
+                            DIAG_RES_RESERVED_PRELUDE_NAME,
+                            format!("'{}' is reserved by the standard prelude", func_decl.name),
+                        );
+                        continue;
+                    }
                     let func_id = self.alloc_func_id();
                     if self
                         .func_names
@@ -160,6 +218,14 @@ impl Ctx {
                     self.pending_funcs.push((func_id, func_decl.clone(), false));
                 }
                 TopDecl::ExternFunc(extern_func) => {
+                    if is_reserved_prelude_name(&extern_func.name) {
+                        self.diagnostics.error_code(
+                            extern_func.span,
+                            DIAG_RES_RESERVED_PRELUDE_NAME,
+                            format!("'{}' is reserved by the standard prelude", extern_func.name),
+                        );
+                        continue;
+                    }
                     let func_id = self.alloc_func_id();
                     if self
                         .func_names
@@ -185,6 +251,14 @@ impl Ctx {
                 }
                 TopDecl::ExternModule(extern_module) => {
                     for func in &extern_module.funcs {
+                        if is_reserved_prelude_name(&func.name) {
+                            self.diagnostics.error_code(
+                                func.span,
+                                DIAG_RES_RESERVED_PRELUDE_NAME,
+                                format!("'{}' is reserved by the standard prelude", func.name),
+                            );
+                            continue;
+                        }
                         let full_name = format!("{}.{}", extern_module.path.join("."), func.name);
                         let func_id = self.alloc_func_id();
                         if self.func_names.insert(full_name.clone(), func_id).is_some() {
@@ -334,6 +408,14 @@ impl Ctx {
                 TypeDeclBody::Sum(variants) => {
                     let mut out = Vec::new();
                     for variant in variants {
+                        if is_reserved_prelude_name(&variant.name) {
+                            self.diagnostics.error_code(
+                                variant.span,
+                                DIAG_RES_RESERVED_PRELUDE_NAME,
+                                format!("'{}' is reserved by the standard prelude", variant.name),
+                            );
+                            continue;
+                        }
                         let variant_id = self.alloc_variant_id();
                         if self
                             .variant_names
@@ -448,6 +530,21 @@ impl Ctx {
                 if let Some(param) = type_params.get(name) {
                     return Type::Param(*param);
                 }
+                if name == "List" {
+                    if args.len() != 1 {
+                        self.diagnostics.error_code(
+                            expr.span,
+                            DIAG_RES_BUILTIN_TYPE_ARGS,
+                            "builtin type 'List' requires exactly one type argument",
+                        );
+                        return Type::List(Box::new(Type::Error));
+                    }
+                    return Type::List(Box::new(self.resolve_type_expr(
+                        &args[0],
+                        type_params,
+                        extern_ctx,
+                    )));
+                }
                 if let Some(ty) = builtin_type(name) {
                     if !args.is_empty() {
                         self.diagnostics.error_code(
@@ -539,4 +636,8 @@ fn builtin_type(name: &str) -> Option<Type> {
         "Unit" => Type::Unit,
         _ => return None,
     })
+}
+
+fn is_reserved_prelude_name(name: &str) -> bool {
+    PRELUDE_RESERVED_NAMES.contains(&name)
 }

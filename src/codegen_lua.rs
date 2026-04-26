@@ -103,7 +103,8 @@ impl<'a> LuaEmitter<'a> {
     }
 
     fn emit_import_module_bootstrap(&mut self) {
-        let mut import_paths: Vec<Vec<String>> = self.resolved.import_modules.values().cloned().collect();
+        let mut import_paths: Vec<Vec<String>> =
+            self.resolved.import_modules.values().cloned().collect();
         import_paths.sort();
         import_paths.dedup();
 
@@ -125,9 +126,7 @@ impl<'a> LuaEmitter<'a> {
                 let scope = path[..=segment_end].join(".");
                 self.line(&format!("{scope} = {scope} or {{}}"));
             }
-            self.line(&format!(
-                "{full_path} = {full_path} or __import_mod_{idx}"
-            ));
+            self.line(&format!("{full_path} = {full_path} or __import_mod_{idx}"));
 
             self.indent -= 1;
             self.line("end");
@@ -283,6 +282,26 @@ impl<'a> LuaEmitter<'a> {
                     .collect::<Vec<_>>()
                     .join(", ");
                 format!("{}({})", callee, args)
+            }
+            TirExprKind::ListLiteral(items) => {
+                let items = items
+                    .iter()
+                    .map(|item| self.emit_expr(item, locals))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{{ {} }}", items)
+            }
+            TirExprKind::ListLength { list } => {
+                let list = self.emit_expr(list, locals);
+                format!("#{}", list)
+            }
+            TirExprKind::ListMap { list, mapper } => {
+                let list = self.emit_expr(list, locals);
+                let mapper = self.emit_expr(mapper, locals);
+                format!(
+                    "(function(__list, __mapper) local __out = {{}}; for __i, __v in ipairs(__list) do __out[__i] = __mapper(__v) end; return __out end)({}, {})",
+                    list, mapper
+                )
             }
             TirExprKind::Field { base, field } => {
                 let base = self.emit_expr(base, locals);

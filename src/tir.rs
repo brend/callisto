@@ -97,6 +97,14 @@ pub enum TirExprKind {
         callee: Box<TirExpr>,
         args: Vec<TirExpr>,
     },
+    ListLiteral(Vec<TirExpr>),
+    ListLength {
+        list: Box<TirExpr>,
+    },
+    ListMap {
+        list: Box<TirExpr>,
+        mapper: Box<TirExpr>,
+    },
 
     Field {
         base: Box<TirExpr>,

@@ -1,5 +1,26 @@
 local M = {}
 
+local __import_ok_0, __import_mod_0 = pcall(import, "playdate/audio")
+if __import_ok_0 then
+    playdate = playdate or {}
+    playdate.audio = playdate.audio or __import_mod_0
+end
+local __import_ok_1, __import_mod_1 = pcall(import, "playdate/graphics")
+if __import_ok_1 then
+    playdate = playdate or {}
+    playdate.graphics = playdate.graphics or __import_mod_1
+end
+local __import_ok_2, __import_mod_2 = pcall(import, "playdate/input")
+if __import_ok_2 then
+    playdate = playdate or {}
+    playdate.input = playdate.input or __import_mod_2
+end
+local __import_ok_3, __import_mod_3 = pcall(import, "playdate/system")
+if __import_ok_3 then
+    playdate = playdate or {}
+    playdate.system = playdate.system or __import_mod_3
+end
+
 local spawn_ball
 local unwrap_or
 local clamp
@@ -91,18 +112,20 @@ integrate_ball = function(ball, vy_delta)
     local l31 = bounce_x(l28.x, ball.vx)
     local l32 = bounce_y(l28.y, l27)
     local l33 = detect_bounce_sfx(l31, ball.vx, l32, l27)
-    return { ball = (function(__base) local __tmp = {}; for k, v in pairs(__base) do __tmp[k] = v end; __tmp.x = l29; __tmp.y = l30; __tmp.vx = l31; __tmp.vy = l32; return __tmp end)(l28), sfx = l33 }
+    local l34 = (function(__base) local __tmp = {}; for k, v in pairs(__base) do __tmp[k] = v end; __tmp.x = l29; __tmp.y = l30; __tmp.vx = l31; __tmp.vy = l32; return __tmp end)(l28)
+    local l35 = l33
+    return { ball = l34, sfx = l35 }
 end
 
 decide_step = function(ball, mode, crank_delta)
-    return (function() if playdate.input.b_just_pressed() then return { tag = "Reset" } else local l37 = integrate_ball(ball, control_delta(mode, crank_delta)); return { tag = "Continue", _1 = l37.ball, _2 = l37.sfx } end end)()
+    return (function() if playdate.input.b_just_pressed() then return { tag = "Reset" } else local l39 = integrate_ball(ball, control_delta(mode, crank_delta)); return { tag = "Continue", _1 = l39.ball, _2 = l39.sfx } end end)()
 end
 
 render = function(ball)
-    local l39 = choose_mode()
+    local l41 = choose_mode()
     local _ = playdate.graphics.clear()
     local _ = playdate.graphics.drawText("O", ball.x, ball.y)
-    local _ = playdate.graphics.drawText(mode_label(l39), 8, 8)
+    local _ = playdate.graphics.drawText(mode_label(l41), 8, 8)
     local _ = playdate.graphics.drawText("A hold: d-pad mode", 8, 24)
     local _ = playdate.graphics.drawText("B: reset ball", 8, 40)
     local _ = playdate.graphics.drawText(crank_side_label(), 8, 56)
@@ -110,8 +133,8 @@ render = function(ball)
 end
 
 step = function(ball, crank_delta)
-    local l42 = choose_mode()
-    return (function(__scrutinee) if __scrutinee.tag == "Continue" and true and true then local l43 = __scrutinee._1 local l44 = __scrutinee._2 local _ = play_sfx(l44); return l43 elseif __scrutinee.tag == "Reset" then local _ = playdate.audio.reset_chime(); return spawn_ball() else error("non-exhaustive match") end end)(decide_step(ball, l42, crank_delta))
+    local l44 = choose_mode()
+    return (function(__scrutinee) if __scrutinee.tag == "Continue" and true and true then local l45 = __scrutinee._1 local l46 = __scrutinee._2 local _ = play_sfx(l46); return l45 elseif __scrutinee.tag == "Reset" then local _ = playdate.audio.reset_chime(); return spawn_ball() else error("non-exhaustive match") end end)(decide_step(ball, l44, crank_delta))
 end
 
 Ball_moved = function(self, dx, dy)

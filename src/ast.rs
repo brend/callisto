@@ -296,6 +296,7 @@ pub enum ExprKind {
         name: String,
         payload: ConstructorPayload,
     },
+    ListLiteral(Vec<Expr>),
 
     Lambda {
         params: Vec<Param>,

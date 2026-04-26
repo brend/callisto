@@ -73,10 +73,6 @@ newtype UserId = Int
 
 type Vec2 { x: Float, y: Float }
 
-type Option[T] =
-  | None
-  | Some(T)
-
 type Shape =
   | Circle { radius: Int }
   | Rect { w: Int, h: Int }
@@ -84,10 +80,24 @@ type Shape =
 
 - Generic params use `[T, U]`.
 - `newtype Name = Inner` declares a nominal wrapper distinct from `Inner`.
+- `Option[T]`, `Some`, `None`, `List[T]`, `length`, and `map` are built-in prelude names.
 - Sum variants can be:
-- No payload: `None`
-- Positional payload: `Some(T)`
+- No payload: `Empty`
+- Positional payload: `Value(T)`
 - Record payload: `Circle { radius: Int }`
+
+### Lists
+
+```cal
+let xs: List[Int] = [1, 2, 3]
+let empty: List[Int] = []
+let ys = map(xs, fn (x: Int) -> Int => x + 1)
+length(ys)
+```
+
+- `List[T]` emits as Lua array-style tables.
+- `[]` requires expected `List[T]` context.
+- `map` is the helper form `map(list, fn)`.
 
 ### Externs
 

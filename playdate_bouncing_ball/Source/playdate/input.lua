@@ -1,5 +1,10 @@
 local M = {}
 
+local __import_ok_0, __import_mod_0 = pcall(import, "playdate")
+if __import_ok_0 then
+    playdate = playdate or __import_mod_0
+end
+
 local k_button_left
 local k_button_right
 local k_button_up

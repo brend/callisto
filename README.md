@@ -10,6 +10,7 @@ Callisto is a statically-typed programming language that compiles to Lua. It bri
 - **Immutable/mutable bindings** — `let` for immutable, `var` for mutable
 - **Method syntax** — `impl` blocks for attaching methods to types
 - **Lambda expressions** — first-class functions with explicit types
+- **Standard prelude** — built-in `Option[T]`, `List[T]`, `length`, and `map`
 - **Record update syntax** — non-destructive field updates with `with`
 - **Parser ergonomics** — trailing commas in multiline lists and record field punning (`Point { x }`)
 - **Extern interop** — typed bindings to existing Lua APIs via `extern`
@@ -155,18 +156,10 @@ return M
 ### Sum types and pattern matching
 
 ```
-module option
-
-type Option[T] =
-  | None
-  | Some(T)
-
-impl Option do
-  fn unwrap_or(self: Option[Int], fallback: Int) -> Int do
-    match self do
-      case Some(v) => v
-      case None    => fallback
-    end
+fn unwrap_or(value: Option[Int], fallback: Int) -> Int do
+  match value do
+    case Some(v) => v
+    case None    => fallback
   end
 end
 
@@ -178,6 +171,20 @@ pub fn safe_div(a: Int, b: Int) -> Option[Int] do
   end
 end
 ```
+
+`Option[T]`, `Some(T)`, and `None` are provided by the standard prelude.
+
+### Lists
+
+```
+pub fn doubled_count() -> Int do
+  let xs: List[Int] = [1, 2, 3]
+  let doubled = map(xs, fn (x: Int) -> Int => x * 2)
+  length(doubled)
+end
+```
+
+`List[T]` is backed by Lua array tables. Empty list literals such as `[]` require an expected `List[T]` type from an annotation, return type, field, or argument context.
 
 ### Extern interop
 
@@ -202,9 +209,10 @@ end
 | Syntax | Description |
 |---|---|
 | `Int`, `Float`, `Bool`, `String` | Primitive types |
+| `Option[T]` | Built-in/prelude optional value type with `Some(T)` and `None` |
+| `List[T]` | Built-in/prelude Lua-array-backed list type |
 | `type Point { x: Int, y: Int }` | Record type |
 | `type Shape = \| Circle(Float) \| Rect { w: Float, h: Float }` | Sum type |
-| `type Option[T] = \| None \| Some(T)` | Generic sum type |
 | `newtype UserId = Int` | Nominal wrapper over an underlying representation type |
 
 ### Bindings

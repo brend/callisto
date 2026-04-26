@@ -729,6 +729,13 @@ impl Parser {
                 let span = l.merge(self.prev_span());
                 self.mk_expr(span, ExprKind::Paren(Box::new(inner)))
             }
+            TokenKind::LBracket => {
+                let l = self.bump().span;
+                let items = self.parse_expr_list(TokenKind::RBracket);
+                self.expect(TokenKind::RBracket, "expected ']' after list literal");
+                let span = l.merge(self.prev_span());
+                self.mk_expr(span, ExprKind::ListLiteral(items))
+            }
             TokenKind::KwIf => self.parse_if_expr(),
             TokenKind::KwMatch => self.parse_match_expr(),
             TokenKind::KwFn => self.parse_lambda_expr(),
