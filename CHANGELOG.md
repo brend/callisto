@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-04-26
+
+### Changed
+- Declares Callisto's stable Playdate-first typed Lua toolchain release.
+- Carries forward the `v0.9.0` compatibility freeze for source syntax, prelude names, CLI/config behavior, diagnostic-code policy, and generated Lua compatibility expectations.
+- Confirms the documented workflow surface for README, cheat sheet, Playdate projects, editor syntax packages, and the v1.0 conformance matrix.
+- Records the stable known exclusions: package management, broad Lua ecosystem support, method-style collection helpers, full LSP implementation, and further syntax redesigns.
+
 ## [0.9.0] - 2026-04-26
 
 ### Added

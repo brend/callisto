@@ -34,12 +34,17 @@ This checklist tracks the remaining work before tagging `v1.0.0`.
 
 ## Final v1.0 Gate
 
-- [ ] Update `Cargo.toml` to `1.0.0`.
-- [ ] Add a dated `1.0.0` changelog entry.
-- [ ] Confirm `cargo test` passes.
-- [ ] Confirm CLI smoke checks pass.
-- [ ] Confirm VS Code and Zed syntax regression checks pass.
-- [ ] Confirm maintained Playdate samples still follow the documented workflow.
-- [ ] Tag `v1.0.0`.
+- [x] Update `Cargo.toml` to `1.0.0`.
+- [x] Add a dated `1.0.0` changelog entry.
+- [x] Confirm `cargo test` passes.
+- [x] Confirm CLI smoke checks pass.
+- [x] Confirm VS Code and Zed syntax regression checks pass.
+- [x] Confirm maintained Playdate samples still follow the documented workflow.
+- [x] Tag `v1.0.0`.
 
 No unresolved `v1.0.0` blocker is known as of the `v0.9.0` compatibility freeze.
+
+Validation recorded on 2026-04-26 from the `codex/v1.0-release` release branch.
+The local `v1.0.0` tag was created after the release commit.
+`playdate_auto_bootstrap` was validated through the auto-bootstrap flow, and
+`playdate_bouncing_ball` was validated through its documented manual-shim flow.
