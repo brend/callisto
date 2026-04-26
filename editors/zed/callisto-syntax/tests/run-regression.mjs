@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const grammarDir = path.join(root, "grammars", "callisto");
+const grammarPath = path.join(grammarDir, "grammar.js");
 const fixturePath = path.join(root, "tests", "fixtures", "highlighting.cal");
 const queryPath = path.join(root, "languages", "callisto", "highlights.scm");
 const npx = findExecutable("npx");
@@ -24,6 +25,23 @@ function runNpx(args, cwd = root) {
   return run(process.execPath, [npx, ...args], cwd);
 }
 
+function patchGrammarForCurrentSurface() {
+  let grammar = fs.readFileSync(grammarPath, "utf8");
+  if (grammar.includes("$.index_expression")) return;
+
+  grammar = grammar.replace(
+    "        $.call_expression,\n        $.member_expression,",
+    "        $.call_expression,\n        $.index_expression,\n        $.member_expression,",
+  );
+  grammar = grammar.replace(
+    "    member_expression: ($) =>\n",
+    `    index_expression: ($) =>\n      prec.left(\n        PREC.POSTFIX,\n        seq(field("collection", $._expression), "[", field("index", $._expression), "]"),\n      ),\n\n    member_expression: ($) =>\n`,
+  );
+
+  fs.writeFileSync(grammarPath, grammar);
+}
+
+patchGrammarForCurrentSurface();
 runNpx(["tree-sitter", "generate"], grammarDir);
 
 const parseOut = runNpx(["tree-sitter", "parse", fixturePath], grammarDir);
@@ -37,6 +55,10 @@ const checks = [
   { name: "interpolation punctuation", pattern: /punctuation\.special[\s\S]*\$\{/ },
   { name: "escaped interpolation marker", pattern: /string\.escape[\s\S]*\\\$/ },
   { name: "function capture", pattern: /function[\s\S]*`length`/ },
+  { name: "append helper capture", pattern: /function[\s\S]*`append`/ },
+  { name: "filter helper capture", pattern: /function[\s\S]*`filter`/ },
+  { name: "fold helper capture", pattern: /function[\s\S]*`fold`/ },
+  { name: "map helper capture", pattern: /function[\s\S]*`map`/ },
   { name: "method call capture", pattern: /function\.method[\s\S]*`normalize`/ },
   { name: "builtin type capture", pattern: /type\.builtin[\s\S]*`String`/ },
   { name: "keyword capture", pattern: /keyword[\s\S]*`fn`/ },

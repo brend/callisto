@@ -80,6 +80,38 @@
     }
   },
   {
+    "name": "prelude append call capture",
+    "scope": "meta.function.call.callisto",
+    "sample": "let more = append(values, values[1])",
+    "captures": {
+      "1": "append"
+    }
+  },
+  {
+    "name": "prelude filter call capture",
+    "scope": "meta.function.call.callisto",
+    "sample": "let selected = filter(more, fn (x: Int) -> Bool => x > 1)",
+    "captures": {
+      "1": "filter"
+    }
+  },
+  {
+    "name": "prelude fold call capture",
+    "scope": "meta.function.call.callisto",
+    "sample": "let total = fold(selected, 0, fn (acc: Int, x: Int) -> Int => acc + x)",
+    "captures": {
+      "1": "fold"
+    }
+  },
+  {
+    "name": "prelude map call capture",
+    "scope": "meta.function.call.callisto",
+    "sample": "let doubled = map(selected, fn (x: Int) -> Int => x + total)",
+    "captures": {
+      "1": "map"
+    }
+  },
+  {
     "name": "method call capture",
     "scope": "meta.method.call.callisto",
     "sample": "v.normalize()",

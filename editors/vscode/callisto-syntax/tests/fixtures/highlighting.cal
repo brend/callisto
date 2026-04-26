@@ -22,6 +22,10 @@ fn banner(name: String, count: Int, id: Int, point: Vec2) -> String {
   let text: String = "Hello ${name}! #${count + 1} \${literal}"
   let shifted: String = "${point with { x = point.x + 1 }}"
   let values: List[Int] = [1, 2, 3]
+  let more = append(values, values[1])
+  let selected = filter(more, fn (x: Int) -> Bool => x > 1)
+  let total = fold(selected, 0, fn (acc: Int, x: Int) -> Int => acc + x)
+  let doubled = map(selected, fn (x: Int) -> Int => x + total)
   let maybe: Option[Int] = Some(id)
   let moved = Vec2 { x_coord, y = point.y }
   match maybe {

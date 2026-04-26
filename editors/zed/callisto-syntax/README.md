@@ -11,7 +11,7 @@ Syntax highlighting support for Callisto (`.cal`, `.luna`) in the Zed editor.
 
 This extension includes interpolation highlighting for strings, including `${expr}` segments and escaped interpolation markers like `\${literal}`.
 
-The grammar tracks the v0.8 source surface: brace-delimited blocks, `else if`, `newtype`, `List[T]`, `Option[T]`, multiline sum declarations, record field punning, constructor patterns, extern declarations, and trailing commas.
+The grammar tracks the v0.9 compatibility-frozen source surface: brace-delimited blocks, `else if`, `newtype`, `List[T]`, `Option[T]`, `length`, `map`, `append`, `filter`, `fold`, multiline sum declarations, record field punning, constructor patterns, extern declarations, and trailing commas.
 
 ## Install as a Dev Extension
 

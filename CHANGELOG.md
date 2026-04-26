@@ -4,11 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-04-26
+
 ### Added
+- `v0.9` planning docs and milestone checklists for the compatibility-freeze and stabilization release.
+- A `v1.0.0` readiness checklist covering compatibility guarantees, docs, tests, diagnostics, CLI/config behavior, release notes, migration notes, and known exclusions.
+- A v1.0-oriented frozen language conformance matrix covering the current parser, resolver/typechecker, diagnostics, and Lua codegen surface.
 - List indexing with `list[index]`, plus `append(list, value)`, `filter(list, fn)`, and `fold(list, initial, fn)` prelude helpers.
 - Regression coverage for the expanded `List[T]` API and direct Lua lowering.
 
 ### Changed
+- `v0.9.0` freezes the intended `v1.0.0` language surface and records explicit post-1.0 exclusions.
+- README, cheat sheet, editor docs, and editor syntax fixtures now describe the compatibility-frozen prelude and brace-only syntax surface.
 - `append`, `filter`, and `fold` are reserved prelude names and cannot be redeclared.
 
 ## [0.8.0] - 2026-04-26

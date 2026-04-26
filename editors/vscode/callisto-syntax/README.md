@@ -17,7 +17,7 @@ This extension adds syntax highlighting for Callisto source files:
 - String interpolation highlighting (`"${expr}"`, including escaped `\${...}` markers)
 - String, number, boolean, wildcard (`_`), and `//` comment highlighting
 
-The grammar tracks the v0.8 source surface: brace-delimited blocks, `else if`, multiline sum declarations, record field punning, constructor patterns, extern declarations, and the v0.7 prelude names.
+The grammar tracks the v0.9 compatibility-frozen source surface: brace-delimited blocks, `else if`, multiline sum declarations, record field punning, constructor patterns, extern declarations, and prelude names including `Option`, `Some`, `None`, `List`, `length`, `map`, `append`, `filter`, and `fold`.
 
 ## Run Grammar Regression Checks
 
